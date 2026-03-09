@@ -14,6 +14,7 @@ import { ApprovalsNamespace } from './namespaces/approvals.js';
 import { AssistantsNamespace } from './namespaces/assistants.js';
 import type { RequestFn } from './namespaces/calls.js';
 import { CallsNamespace } from './namespaces/calls.js';
+import { DoctorNamespace } from './namespaces/doctor.js';
 import { InsightsNamespace } from './namespaces/insights.js';
 import { MissionsNamespace } from './namespaces/missions.js';
 import { NumbersNamespace } from './namespaces/numbers.js';
@@ -39,6 +40,7 @@ export class ClawTalkClient {
   readonly user: UserNamespace;
   readonly numbers: NumbersNamespace;
   readonly insights: InsightsNamespace;
+  readonly doctor: DoctorNamespace;
 
   private readonly baseUrl: string;
   private readonly headers: Record<string, string>;
@@ -64,6 +66,7 @@ export class ClawTalkClient {
     this.user = new UserNamespace(request);
     this.numbers = new NumbersNamespace(request);
     this.insights = new InsightsNamespace(request);
+    this.doctor = new DoctorNamespace(request);
   }
 
   private async request<T>(method: string, endpoint: string, body?: unknown): Promise<T> {

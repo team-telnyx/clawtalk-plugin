@@ -16,6 +16,7 @@ export {
   UNIMPLEMENTED_ENDPOINTS,
 } from './endpoints.js';
 export { ApiError } from './errors.js';
+export type { DoctorCheckResult } from './namespaces/doctor.js';
 
 // Re-export all API types
 export type {

@@ -196,6 +196,16 @@ export const ENDPOINTS = {
   orderPhone: { method: 'POST', path: '/v1/numbers/order', sdkMethod: null, write: true },
   releasePhone: { method: 'POST', path: '/v1/numbers/release', sdkMethod: null, write: true },
   listMyPhones: { method: 'GET', path: '/v1/numbers/mine', sdkMethod: null, write: false },
+  // ── Doctor (/v1/doctor) ──────────────────────────────────
+  doctorCritical: { method: 'GET', path: '/v1/doctor/critical', sdkMethod: 'getDoctorCritical', write: false },
+  doctorWarnings: { method: 'GET', path: '/v1/doctor/warnings', sdkMethod: 'getDoctorWarnings', write: false },
+  doctorRecommended: {
+    method: 'GET',
+    path: '/v1/doctor/recommended',
+    sdkMethod: 'getDoctorRecommended',
+    write: false,
+  },
+  doctorInfra: { method: 'GET', path: '/v1/doctor/infra', sdkMethod: 'getDoctorInfra', write: false },
 } as const satisfies Record<string, Endpoint>;
 
 /**
