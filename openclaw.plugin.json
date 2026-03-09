@@ -1,0 +1,113 @@
+{
+  "id": "clawtalk",
+  "name": "ClawTalk",
+  "description": "Voice calls, SMS, missions, and approvals via ClawTalk",
+  "skills": ["./skills"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["apiKey"],
+    "properties": {
+      "enabled": {
+        "type": "boolean"
+      },
+      "apiKey": {
+        "type": "string",
+        "description": "ClawTalk API key"
+      },
+      "server": {
+        "type": "string",
+        "description": "ClawTalk server URL",
+        "default": "https://clawtalk.com"
+      },
+      "ownerName": {
+        "type": "string",
+        "description": "User's name for voice greeting"
+      },
+      "agentName": {
+        "type": "string",
+        "description": "Agent's name for voice context"
+      },
+      "greeting": {
+        "type": "string",
+        "description": "Custom greeting for inbound calls"
+      },
+      "agentId": {
+        "type": "string",
+        "description": "Gateway agent ID",
+        "default": "main"
+      },
+      "autoConnect": {
+        "type": "boolean",
+        "description": "Connect WebSocket on startup",
+        "default": true
+      },
+      "voiceContext": {
+        "type": "string",
+        "description": "Override default voice context prompt"
+      },
+      "missions": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "defaultVoice": {
+            "type": "string",
+            "description": "Default TTS voice for mission assistants"
+          },
+          "defaultModel": {
+            "type": "string",
+            "description": "Default AI model for mission assistants"
+          }
+        }
+      }
+    }
+  },
+  "uiHints": {
+    "apiKey": {
+      "label": "API Key",
+      "sensitive": true
+    },
+    "server": {
+      "label": "Server URL",
+      "placeholder": "https://clawtalk.com",
+      "advanced": true
+    },
+    "ownerName": {
+      "label": "Your Name"
+    },
+    "agentName": {
+      "label": "Agent Name"
+    },
+    "greeting": {
+      "label": "Greeting",
+      "advanced": true
+    },
+    "agentId": {
+      "label": "Agent ID",
+      "advanced": true
+    },
+    "autoConnect": {
+      "label": "Auto-Connect WebSocket",
+      "advanced": true
+    },
+    "voiceContext": {
+      "label": "Voice Context Prompt",
+      "advanced": true
+    },
+    "missions.enabled": {
+      "label": "Enable Missions"
+    },
+    "missions.defaultVoice": {
+      "label": "Default Voice",
+      "advanced": true
+    },
+    "missions.defaultModel": {
+      "label": "Default Model",
+      "advanced": true
+    }
+  }
+}
