@@ -133,7 +133,7 @@ export class WsLogger {
 
   private writeLine(line: string): void {
     if (!this.stream) return;
-    this.stream.write(line + '\n');
+    this.stream.write(`${line}\n`);
 
     // Periodic rotation check (avoids stat() on every write)
     this.writeCount++;
@@ -156,7 +156,7 @@ export class WsLogger {
       if (existsSync(this.path)) {
         const stat = statSync(this.path);
         if (stat.size > MAX_LOG_SIZE_BYTES) {
-          const rotated = this.path + '.1';
+          const rotated = `${this.path}.1`;
           renameSync(this.path, rotated);
           return true;
         }

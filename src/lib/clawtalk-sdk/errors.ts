@@ -30,9 +30,7 @@ export class ApiError extends Error {
     }
 
     // Build a message that actually tells the agent what went wrong
-    const fullMessage = serverMessage
-      ? `${message} — ${serverMessage}`
-      : message;
+    const fullMessage = serverMessage ? `${message} — ${serverMessage}` : message;
 
     super(fullMessage);
     this.name = 'ApiError';

@@ -109,7 +109,7 @@ export class ToolError extends ClawTalkError {
     const c = code || '';
     const m = (message || '').toLowerCase();
 
-    if (c === 'step_not_found' || m.includes('step') && m.includes('not found')) {
+    if (c === 'step_not_found' || (m.includes('step') && m.includes('not found'))) {
       return 'Use clawtalk_mission_get_plan to list valid step IDs for this mission.';
     }
     if (c === 'missing_field') {

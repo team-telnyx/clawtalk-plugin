@@ -1,11 +1,11 @@
 #!/bin/bash
 #
 # ClawTalk Plugin Installer
-# Downloads the latest release from GitHub and installs via openclaw plugins.
+# Fetches the latest release from GitHub and installs via openclaw plugins.
 #
 # Usage:
-#   ./scripts/install.sh          # Install latest release
-#   ./scripts/install.sh v0.2.0   # Install specific version
+#   curl -fsSL https://clawdtalk.com/install.sh | bash
+#   curl -fsSL https://clawdtalk.com/install.sh | bash -s -- v0.2.0
 #
 # Prerequisites: openclaw, curl, jq
 
@@ -23,7 +23,7 @@ NC='\033[0m'
 die() { echo -e "${RED}Error: $1${NC}" >&2; exit 1; }
 
 # Check prerequisites
-command -v openclaw >/dev/null 2>&1 || die "openclaw CLI not found"
+command -v openclaw >/dev/null 2>&1 || die "openclaw CLI not found. Install from https://docs.openclaw.ai"
 command -v curl >/dev/null 2>&1 || die "curl not found"
 command -v jq >/dev/null 2>&1 || die "jq not found"
 
@@ -37,6 +37,41 @@ fi
 
 echo -e "${GREEN}ClawTalk Plugin Installer${NC}"
 echo "========================="
+
+# Check for legacy skill WebSocket connection
+SKILL_DIRS=(
+  "$HOME/.openclaw/workspace/skills/clawdtalk-client"
+  "$HOME/skills/clawdtalk-client"
+)
+for SKILL_DIR in "${SKILL_DIRS[@]}"; do
+  PID_FILE="${SKILL_DIR}/.connect.pid"
+  if [ -f "$PID_FILE" ]; then
+    SKILL_PID=$(cat "$PID_FILE")
+    if ps -p "$SKILL_PID" &>/dev/null 2>&1; then
+      echo -e "${YELLOW}⚠ Legacy ClawdTalk skill is running (PID: ${SKILL_PID})${NC}"
+      echo "  The old skill's WebSocket will conflict with the plugin."
+      echo "  Stopping it now..."
+      kill "$SKILL_PID" 2>/dev/null && sleep 1
+      if ps -p "$SKILL_PID" &>/dev/null 2>&1; then
+        kill -9 "$SKILL_PID" 2>/dev/null
+      fi
+      rm -f "$PID_FILE"
+      echo -e "${GREEN}✓ Legacy skill stopped${NC}"
+    else
+      rm -f "$PID_FILE"
+    fi
+  fi
+done
+
+# Also check if connect.sh process is running without a PID file
+LEGACY_PIDS=$(pgrep -f 'clawdtalk-client.*connect' 2>/dev/null || true)
+if [ -n "$LEGACY_PIDS" ]; then
+  echo -e "${YELLOW}⚠ Found legacy ClawdTalk skill process(es): ${LEGACY_PIDS}${NC}"
+  echo "  Stopping to avoid WebSocket conflict..."
+  echo "$LEGACY_PIDS" | xargs kill 2>/dev/null
+  sleep 1
+  echo -e "${GREEN}✓ Legacy processes stopped${NC}"
+fi
 
 # Check current version
 CURRENT=$(openclaw plugins info "$PLUGIN_ID" 2>/dev/null | grep -i version | head -1 | awk '{print $NF}' || echo "not installed")
@@ -80,7 +115,6 @@ if [ -n "$SHA_URL" ]; then
   echo "Verifying checksum..."
   curl -sL "$SHA_URL" -o "${TEMP_DIR}/checksum"
 
-  # Extract expected hash (handle both "hash  filename" and bare hash formats)
   EXPECTED=$(grep "$TGZ_NAME" "${TEMP_DIR}/checksum" 2>/dev/null | awk '{print $1}' || head -1 "${TEMP_DIR}/checksum" | awk '{print $1}')
 
   if echo "$EXPECTED" | grep -Eq '^[a-fA-F0-9]{64}$'; then
@@ -113,3 +147,21 @@ echo "    clawtalk:"
 echo "      apiKey: \"your-api-key\""
 echo
 echo "Then restart: openclaw gateway restart"
+
+# Warn about legacy skill
+FOUND_SKILL=false
+for SKILL_DIR in "${SKILL_DIRS[@]}"; do
+  if [ -d "$SKILL_DIR" ] && [ -f "${SKILL_DIR}/package.json" ]; then
+    FOUND_SKILL=true
+    break
+  fi
+done
+if [ "$FOUND_SKILL" = true ]; then
+  echo -e "${YELLOW}────────────────────────────────────────────${NC}"
+  echo -e "${YELLOW}⚠ Legacy clawdtalk-client skill detected${NC}"
+  echo "  The plugin replaces the old skill entirely."
+  echo "  You can safely remove it:"
+  echo "    rm -rf ${SKILL_DIR}"
+  echo "  And remove any clawdtalk-client references from your OpenClaw config."
+  echo -e "${YELLOW}────────────────────────────────────────────${NC}"
+fi
