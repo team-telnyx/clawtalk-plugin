@@ -154,7 +154,7 @@ export class WebSocketService extends TypedEmitter<WebSocketEvents> {
       const serverUrl = this.config.server.replace(/^http/, 'ws');
       const wsUrl = `${serverUrl}/ws`;
 
-      this.logger.info(`Connecting to ${wsUrl}`);
+      this.logger.info(`Connecting to ClawTalk WebSocket (${wsUrl})`);
 
       try {
         this.ws = new WebSocket(wsUrl);
@@ -166,7 +166,7 @@ export class WebSocketService extends TypedEmitter<WebSocketEvents> {
       let settled = false;
 
       this.ws.on('open', () => {
-        this.logger.info('Connected, authenticating...');
+        this.logger.info('ClawTalk connected, authenticating...');
         this.sendAuth();
       });
 
@@ -200,7 +200,7 @@ export class WebSocketService extends TypedEmitter<WebSocketEvents> {
 
       this.ws.on('close', (code: number, reason: Buffer) => {
         const reasonStr = reason.toString() || 'unknown';
-        this.logger.info(`Disconnected: code=${code} reason=${reasonStr}`);
+        this.logger.info(`ClawTalk disconnected: code=${code} reason=${reasonStr}`);
 
         this.authenticated = false;
         this.clearTimers();
@@ -224,8 +224,15 @@ export class WebSocketService extends TypedEmitter<WebSocketEvents> {
       });
 
       this.ws.on('error', (err: Error) => {
-        this.logger.error?.(`WebSocket error: ${err.message}`);
-        this.emit('error', err);
+        this.logger.error?.(`ClawTalk WebSocket error: ${err.message}`);
+
+        // If we haven't settled the promise yet (e.g. server returned 502/404
+        // before 'open' fires), reject so the caller can handle it gracefully
+        // instead of crashing the gateway.
+        if (!settled) {
+          settled = true;
+          rejectPromise(new WebSocketError('WS_CONNECT_FAILED', `Connection error: ${err.message}`));
+        }
       });
 
       this.ws.on('pong', () => {
@@ -256,7 +263,7 @@ export class WebSocketService extends TypedEmitter<WebSocketEvents> {
     this.reconnectAttempts = 0;
     this.currentReconnectDelay = RECONNECT_MIN_MS;
 
-    this.logger.info(`Authenticated (v${this.clientVersion})`);
+    this.logger.info(`ClawTalk authenticated (v${this.clientVersion})`);
     this.startPing();
 
     // Send restart notification on reconnect (not first connect)
@@ -313,13 +320,17 @@ export class WebSocketService extends TypedEmitter<WebSocketEvents> {
   // ── Reconnect ─────────────────────────────────────────
 
   private scheduleReconnect(): void {
+    // Prevent double-schedule (both 'error' reject + 'close' can trigger this)
+    if (this.reconnectTimer) return;
+
     this.reconnectAttempts++;
     const delay = Math.min(this.currentReconnectDelay, RECONNECT_MAX_MS);
     this.currentReconnectDelay = Math.min(delay * 2, RECONNECT_MAX_MS);
 
-    this.logger.info(`Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts})`);
+    this.logger.info(`ClawTalk reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts})`);
 
     this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
       try {
         await this.createConnection();
       } catch (err) {

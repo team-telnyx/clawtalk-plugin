@@ -106,9 +106,9 @@ async function createClawTalkRuntime(params: {
   if (config.autoConnect) {
     try {
       await ws.connect();
+      logger.info('ClawTalk service started');
     } catch (err) {
-      logger.error?.(`WebSocket connect failed: ${err instanceof Error ? err.message : String(err)}`);
-      // Non-fatal: WS will auto-reconnect
+      logger.warn?.(`ClawTalk WebSocket unavailable, will retry: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -139,16 +139,23 @@ const clawTalkPlugin = {
     const rawConfig = (api.pluginConfig ?? {}) as unknown as ClawTalkConfig;
     const config = resolveConfig(rawConfig);
 
+    // OpenClaw's plugin API logger tags all output as [gateway] — there's no
+    // built-in per-plugin scoping. Channels like Slack get [slack] via the
+    // channel dock's runtime.log, which is a separate system.
+    // We use api.logger directly and accept [gateway] tagging for now.
+    // TODO: request per-plugin logger scoping upstream in OpenClaw.
+    const logger = api.logger;
+
     if (!config.apiKey) {
-      api.logger.warn('ClawTalk plugin loaded without API key. Tools will fail until configured.');
+      logger.warn('ClawTalk plugin loaded without API key. Tools will fail until configured.');
     }
 
     if (!config.enabled) {
-      api.logger.info('ClawTalk plugin disabled via config.');
+      logger.info('ClawTalk plugin disabled via config.');
       return;
     }
 
-    api.logger.info(`ClawTalk plugin loaded (server: ${config.server})`);
+    logger.info(`ClawTalk plugin loaded (server: ${config.server})`);
 
     // ── Lazy runtime ──────────────────────────────────────
     let runtimePromise: Promise<ClawTalkRuntime> | null = null;
@@ -161,7 +168,7 @@ const clawTalkPlugin = {
         runtimePromise = createClawTalkRuntime({
           config,
           coreConfig: api.config as CoreConfig,
-          logger: api.logger,
+          logger: logger,
           enqueueSystemEvent: api.runtime.system.enqueueSystemEvent,
           dataDir: api.resolvePath('.'),
         });
@@ -184,7 +191,7 @@ const clawTalkPlugin = {
         approvalManager: rt.approvalManager,
         ws: rt.ws,
         missions: rt.missionService,
-        logger: api.logger,
+        logger: logger,
       });
       return toolInstances;
     };
@@ -203,7 +210,7 @@ const clawTalkPlugin = {
       approvalManager: dummyApproval,
       ws: dummyWs,
       missions: dummyMissions,
-      logger: api.logger,
+      logger: logger,
     });
 
     for (const [toolIndex, skeleton] of skeletonTools.entries()) {
@@ -221,7 +228,7 @@ const clawTalkPlugin = {
       });
     }
 
-    api.logger.info(`Registered ${skeletonTools.length} agent tools`);
+    logger.info(`Registered ${skeletonTools.length} agent tools`);
 
     // ── Register service ──────────────────────────────────
     api.registerService({
@@ -229,9 +236,8 @@ const clawTalkPlugin = {
       start: async () => {
         try {
           await ensureRuntime();
-          api.logger.info('ClawTalk service started');
         } catch (err) {
-          api.logger.error?.(`ClawTalk service start failed: ${err instanceof Error ? err.message : String(err)}`);
+          logger.error?.(`ClawTalk service start failed: ${err instanceof Error ? err.message : String(err)}`);
         }
       },
       stop: async () => {
@@ -239,7 +245,7 @@ const clawTalkPlugin = {
           try {
             const rt = await runtimePromise;
             rt.ws.disconnect();
-            api.logger.info('ClawTalk service stopped');
+            logger.info('ClawTalk service stopped');
           } catch {
             // Already cleaned up
           } finally {
@@ -263,7 +269,7 @@ const clawTalkPlugin = {
             ws: rt.ws,
             version: rt.ws.version,
             startedAt,
-            logger: api.logger,
+            logger: logger,
           });
           await handler(req, res);
         } catch (err) {
@@ -289,7 +295,7 @@ const clawTalkPlugin = {
             ws: rt.ws,
             version: rt.ws.version,
             startedAt,
-            logger: api.logger,
+            logger: logger,
           });
           await handler(req, res);
         } catch (_err) {

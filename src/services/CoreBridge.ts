@@ -121,7 +121,16 @@ function resolveOpenClawRoot(): string {
   }
 
   const candidates = new Set<string>();
-  if (process.argv[1]) candidates.add(path.dirname(process.argv[1]));
+  // Follow symlinks: process.argv[1] is often a symlink in /opt/homebrew/bin
+  // that points into the real openclaw package directory.
+  if (process.argv[1]) {
+    try {
+      const realArgv = fs.realpathSync(process.argv[1]);
+      candidates.add(path.dirname(realArgv));
+    } catch {
+      candidates.add(path.dirname(process.argv[1]));
+    }
+  }
   candidates.add(process.cwd());
   try {
     const urlPath = fileURLToPath(import.meta.url);
