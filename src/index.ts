@@ -97,7 +97,7 @@ async function createClawTalkRuntime(params: {
   const missionService = new MissionService({ client, dataDir, logger });
 
   // 8. DoctorService
-  const doctor = new DoctorService({ client, ws, coreBridge, logger });
+  const doctor = new DoctorService({ client, ws, coreBridge, logger, openclawRoot: process.env.OPENCLAW_ROOT?.trim() });
 
   // 9. Wire WebSocket events to handlers
   ws.on('context_request', (msg) => callHandler.handleContextRequest(msg));

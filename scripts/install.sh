@@ -99,7 +99,7 @@ TGZ_NAME=$(basename "$TGZ_URL")
 
 # Find checksum asset
 SHA_URL=$(echo "$RELEASE_JSON" | jq -r '
-  [.assets[] | select(.name | endswith(".sha256") or .name | endswith(".sha256sum"))] | first | .browser_download_url // empty
+  [.assets[] | select(.name | (endswith(".sha256") or endswith(".sha256sum")))] | first | .browser_download_url // empty
 ')
 
 TEMP_DIR=$(mktemp -d)
@@ -134,19 +134,40 @@ else
   echo -e "${YELLOW}⚠ No checksum asset found, skipping verification${NC}"
 fi
 
+# Prompt for API key
+echo
+echo -e "${GREEN}Setup${NC}"
+echo "Enter your ClawTalk API key (from your portal account settings)."
+echo -n "API Key: "
+read -r API_KEY
+[ -n "$API_KEY" ] || die "API key is required"
+
+# Optional: server URL
+echo -n "Server URL [https://clawdtalk.com]: "
+read -r SERVER_URL
+SERVER_URL="${SERVER_URL:-https://clawdtalk.com}"
+
 # Install
+echo
 echo "Installing plugin..."
 openclaw plugins install "${TEMP_DIR}/${TGZ_NAME}"
+
+# Write config to openclaw.json
+CONFIG_FILE="${OPENCLAW_CONFIG:-${HOME}/.openclaw/openclaw.json}"
+if [ -f "$CONFIG_FILE" ]; then
+  echo "Configuring plugin..."
+  PLUGIN_CONFIG=$(jq -n --arg key "$API_KEY" --arg srv "$SERVER_URL" '{apiKey: $key, server: $srv}')
+  jq --argjson cfg "$PLUGIN_CONFIG" '.plugins.entries.clawtalk.config = $cfg' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" \
+    && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+  echo -e "${GREEN}✓ Config written${NC}"
+else
+  echo -e "${YELLOW}⚠ Could not find ${CONFIG_FILE} — configure manually${NC}"
+fi
 
 echo
 echo -e "${GREEN}✓ ClawTalk plugin installed (${VERSION})${NC}"
 echo
-echo "Configure in your gateway config:"
-echo "  plugins:"
-echo "    clawtalk:"
-echo "      apiKey: \"your-api-key\""
-echo
-echo "Then restart: openclaw gateway restart"
+echo "Restart to activate: openclaw gateway restart"
 
 # Warn about legacy skill
 FOUND_SKILL=false

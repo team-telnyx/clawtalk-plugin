@@ -39,17 +39,20 @@ export class DoctorService {
   private readonly ws: WebSocketService;
   private readonly coreBridge: ICoreBridge | null;
   private readonly logger: Logger;
+  private readonly openclawRoot: string | null;
 
   constructor(deps: {
     client: ClawTalkClient;
     ws: WebSocketService;
     coreBridge?: ICoreBridge;
     logger: Logger;
+    openclawRoot?: string;
   }) {
     this.client = deps.client;
     this.ws = deps.ws;
     this.coreBridge = deps.coreBridge ?? null;
     this.logger = deps.logger;
+    this.openclawRoot = deps.openclawRoot ?? null;
   }
 
   async runAll(): Promise<DoctorReport> {
@@ -110,11 +113,10 @@ export class DoctorService {
 
   private checkExtensionApi(): DoctorCheck {
     try {
-      const openclawRoot = process.env.OPENCLAW_ROOT?.trim();
       const candidates: string[] = [];
 
-      if (openclawRoot) {
-        candidates.push(path.join(openclawRoot, 'dist', 'extensionAPI.js'));
+      if (this.openclawRoot) {
+        candidates.push(path.join(this.openclawRoot, 'dist', 'extensionAPI.js'));
       }
       if (process.argv[1]) {
         candidates.push(path.join(path.dirname(process.argv[1]), '..', 'dist', 'extensionAPI.js'));
