@@ -12,10 +12,10 @@
  * only the Commander API surface we actually use.
  */
 
-import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import tty from 'node:tty';
 import { sleep } from 'openclaw/plugin-sdk';
 
 /* eslint-disable no-console -- CLI commands use console for output */
@@ -55,36 +55,28 @@ const NC = '\x1b[0m';
 
 /**
  * Synchronous readline from /dev/tty.
- * When silent is true, terminal echo is suppressed via stty on /dev/tty
- * so secrets (API keys) are not visible while typing.
- * A SIGINT handler ensures echo is restored if the user hits Ctrl+C.
+ * When silent is true, terminal echo is suppressed via Node's tty.ReadStream
+ * raw mode so secrets (API keys) are not visible while typing.
+ * A SIGINT handler ensures the terminal is restored if the user hits Ctrl+C.
  */
 function readlineSync(prompt: string, opts?: { silent?: boolean }): string {
-  let echoDisabled = false;
+  const fd = fs.openSync('/dev/tty', 'r');
+  let ttyStream: tty.ReadStream | undefined;
   let sigintHandler: (() => void) | undefined;
 
-  if (opts?.silent) {
-    try {
-      execSync('stty -echo < /dev/tty', { stdio: 'pipe', shell: '/bin/sh' });
-      echoDisabled = true;
-      // Restore echo on Ctrl+C so the terminal isn't left broken
+  try {
+    if (opts?.silent && tty.isatty(fd)) {
+      ttyStream = new tty.ReadStream(fd);
+      ttyStream.setRawMode(true);
+
       sigintHandler = () => {
-        try {
-          execSync('stty echo < /dev/tty', { stdio: 'pipe', shell: '/bin/sh' });
-        } catch {
-          /* ignore */
-        }
+        ttyStream?.setRawMode(false);
         process.stdout.write('\n');
         process.exit(130);
       };
       process.on('SIGINT', sigintHandler);
-    } catch {
-      // Best effort; some environments don't support stty
     }
-  }
 
-  const fd = fs.openSync('/dev/tty', 'r');
-  try {
     process.stdout.write(prompt);
 
     const chunks: Buffer[] = [];
@@ -92,24 +84,31 @@ function readlineSync(prompt: string, opts?: { silent?: boolean }): string {
     while (true) {
       const n = fs.readSync(fd, byte, 0, 1, null);
       if (n === 0) break;
+      // In raw mode, Ctrl+C comes through as 0x03
+      if (byte[0] === 0x03) {
+        ttyStream?.setRawMode(false);
+        process.stdout.write('\n');
+        process.exit(130);
+      }
       if (byte[0] === 0x0a || byte[0] === 0x0d) break; // \n or \r
+      // Backspace/delete support
+      if (byte[0] === 0x7f || byte[0] === 0x08) {
+        if (chunks.length > 0) chunks.pop();
+        continue;
+      }
       chunks.push(Buffer.from(byte));
     }
 
     return Buffer.concat(chunks).toString('utf8').trim();
   } finally {
-    fs.closeSync(fd);
-    if (echoDisabled) {
-      try {
-        execSync('stty echo < /dev/tty', { stdio: 'pipe', shell: '/bin/sh' });
-      } catch {
-        /* ignore */
-      }
+    if (ttyStream) {
+      ttyStream.setRawMode(false);
       process.stdout.write('\n');
     }
     if (sigintHandler) {
       process.removeListener('SIGINT', sigintHandler);
     }
+    fs.closeSync(fd);
   }
 }
 
