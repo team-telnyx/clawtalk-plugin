@@ -71,7 +71,9 @@ function readlineSync(prompt: string, opts?: { silent?: boolean }): string {
       sigintHandler = () => {
         try {
           execSync('stty echo < /dev/tty', { stdio: 'pipe', shell: '/bin/sh' });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         process.stdout.write('\n');
         process.exit(130);
       };
@@ -100,7 +102,9 @@ function readlineSync(prompt: string, opts?: { silent?: boolean }): string {
     if (echoDisabled) {
       try {
         execSync('stty echo < /dev/tty', { stdio: 'pipe', shell: '/bin/sh' });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       process.stdout.write('\n');
     }
     if (sigintHandler) {
@@ -158,11 +162,19 @@ function writeConfig(json: Record<string, unknown>): void {
     fs.renameSync(tmpPath, configPath);
   } catch (err) {
     // Clean up tmp on failure, preserve backup
-    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+    try {
+      fs.unlinkSync(tmpPath);
+    } catch {
+      /* ignore */
+    }
     throw err;
   }
 
-  try { fs.unlinkSync(backupPath); } catch { /* ignore */ }
+  try {
+    fs.unlinkSync(backupPath);
+  } catch {
+    /* ignore */
+  }
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: config shape is dynamic
@@ -362,11 +374,7 @@ export function registerClawTalkCli(params: { program: CommandLike; wsLogPath: s
 
           for (const check of data.checks) {
             const icon =
-              check.status === 'pass'
-                ? `${GREEN}✓${NC}`
-                : check.status === 'warn'
-                  ? `${YELLOW}⚠${NC}`
-                  : `${RED}✗${NC}`;
+              check.status === 'pass' ? `${GREEN}✓${NC}` : check.status === 'warn' ? `${YELLOW}⚠${NC}` : `${RED}✗${NC}`;
             const detail = check.detail ? ` ${DIM}${check.detail}${NC}` : '';
             console.log(`  ${icon} ${check.id}${detail}`);
           }
