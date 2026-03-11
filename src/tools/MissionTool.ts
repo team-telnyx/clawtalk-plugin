@@ -13,9 +13,15 @@ import { ToolError } from '../utils/errors.js';
 
 // ── Helpers ─────────────────────────────────────────────────
 
-function formatResult(payload: unknown) {
+const STEP_REMINDER =
+  '💡 Reminder: Update step status as you progress (pending → in_progress → completed/failed/skipped). All steps must be terminal before completing the mission.';
+
+function formatResult(payload: unknown, includeStepReminder = false) {
+  const text = includeStepReminder
+    ? `${JSON.stringify(payload, null, 2)}\n\n${STEP_REMINDER}`
+    : JSON.stringify(payload, null, 2);
   return {
-    content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }],
+    content: [{ type: 'text' as const, text }],
     details: payload,
   };
 }
@@ -155,7 +161,7 @@ export class MissionInitTool {
         message: result.resumed
           ? `Resumed existing mission '${result.slug}'`
           : `Created mission '${result.slug}' with run ${result.runId}`,
-      });
+      }, true);
     } catch (err) {
       throw ToolError.fromError('clawtalk_mission_init', err);
     }
@@ -238,7 +244,7 @@ export class MissionScheduleTool {
         channel,
         scheduledAt: raw.scheduledAt,
         message: `Scheduled ${channel} event ${eventId} for ${raw.scheduledAt}`,
-      });
+      }, true);
     } catch (err) {
       throw ToolError.fromError('clawtalk_mission_schedule', err);
     }
@@ -344,7 +350,7 @@ export class MissionLogEventTool {
         stepId: raw.stepId as string | undefined,
         payload: parseJsonParam(raw.payload as string | undefined) as Record<string, unknown> | undefined,
       });
-      return formatResult({ eventId: id, message: `Logged event: ${raw.summary}` });
+      return formatResult({ eventId: id, message: `Logged event: ${raw.summary}` }, true);
     } catch (err) {
       throw ToolError.fromError('clawtalk_mission_log_event', err);
     }

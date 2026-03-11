@@ -264,6 +264,10 @@ describe('MissionService.setupVoiceAgent', () => {
 describe('MissionService.completeMission', () => {
   it('completes mission and removes state', async () => {
     const client = mockClient();
+    (client.missions.plans.get as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { step_id: 's1', status: 'completed', sequence: 1 },
+      { step_id: 's2', status: 'skipped', sequence: 2 },
+    ]);
     const svc = new MissionService({ client, logger: logger(), dataDir });
 
     await svc.updateSlugState('done', { mission_id: 'mis_1', run_id: 'run_1' });
@@ -283,6 +287,46 @@ describe('MissionService.completeMission', () => {
   it('throws if no active mission', async () => {
     const svc = new MissionService({ client: mockClient(), logger: logger(), dataDir });
     await expect(svc.completeMission({ missionSlug: 'nope', summary: 'x' })).rejects.toThrow('No active mission');
+  });
+
+  it('rejects completion when steps are still pending', async () => {
+    const client = mockClient();
+    (client.missions.plans.get as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { step_id: 'call-alice', status: 'completed', sequence: 1 },
+      { step_id: 'call-bob', status: 'pending', sequence: 2 },
+      { step_id: 'send-report', status: 'in_progress', sequence: 3 },
+    ]);
+    const svc = new MissionService({ client, logger: logger(), dataDir });
+    await svc.updateSlugState('m', { mission_id: 'mis_1', run_id: 'run_1' });
+
+    await expect(svc.completeMission({ missionSlug: 'm', summary: 'done' })).rejects.toThrow(
+      /2 step\(s\) still non-terminal/,
+    );
+    expect(client.missions.runs.update).not.toHaveBeenCalled();
+  });
+
+  it('allows completion when all steps are terminal (completed/failed/skipped)', async () => {
+    const client = mockClient();
+    (client.missions.plans.get as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { step_id: 's1', status: 'completed', sequence: 1 },
+      { step_id: 's2', status: 'failed', sequence: 2 },
+      { step_id: 's3', status: 'skipped', sequence: 3 },
+    ]);
+    const svc = new MissionService({ client, logger: logger(), dataDir });
+    await svc.updateSlugState('m', { mission_id: 'mis_1', run_id: 'run_1' });
+
+    await svc.completeMission({ missionSlug: 'm', summary: 'mixed results' });
+    expect(client.missions.runs.update).toHaveBeenCalled();
+  });
+
+  it('allows completion when mission has no plan steps', async () => {
+    const client = mockClient();
+    (client.missions.plans.get as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    const svc = new MissionService({ client, logger: logger(), dataDir });
+    await svc.updateSlugState('m', { mission_id: 'mis_1', run_id: 'run_1' });
+
+    await svc.completeMission({ missionSlug: 'm', summary: 'no steps needed' });
+    expect(client.missions.runs.update).toHaveBeenCalled();
   });
 });
 
@@ -378,6 +422,127 @@ describe('MissionService.logEvent', () => {
       step_id: undefined,
       payload: undefined,
     });
+  });
+});
+
+// ── Query helpers ───────────────────────────────────────────
+
+// ── updatePlanStep state machine ────────────────────────────
+
+describe('MissionService.updatePlanStep state machine', () => {
+  it('allows pending → in_progress', async () => {
+    const client = mockClient();
+    (client.missions.plans.get as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { step_id: 's1', status: 'pending', sequence: 1 },
+    ]);
+    const svc = new MissionService({ client, logger: logger(), dataDir });
+    await svc.updateSlugState('m', { mission_id: 'mis_1', run_id: 'run_1' });
+
+    await svc.updatePlanStep('m', 's1', 'in_progress');
+    expect(client.missions.plans.updateStep).toHaveBeenCalledWith('mis_1', 'run_1', 's1', 'in_progress');
+  });
+
+  it('allows pending → skipped', async () => {
+    const client = mockClient();
+    (client.missions.plans.get as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { step_id: 's1', status: 'pending', sequence: 1 },
+    ]);
+    const svc = new MissionService({ client, logger: logger(), dataDir });
+    await svc.updateSlugState('m', { mission_id: 'mis_1', run_id: 'run_1' });
+
+    await svc.updatePlanStep('m', 's1', 'skipped');
+    expect(client.missions.plans.updateStep).toHaveBeenCalled();
+  });
+
+  it('allows in_progress → completed', async () => {
+    const client = mockClient();
+    (client.missions.plans.get as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { step_id: 's1', status: 'in_progress', sequence: 1 },
+    ]);
+    const svc = new MissionService({ client, logger: logger(), dataDir });
+    await svc.updateSlugState('m', { mission_id: 'mis_1', run_id: 'run_1' });
+
+    await svc.updatePlanStep('m', 's1', 'completed');
+    expect(client.missions.plans.updateStep).toHaveBeenCalled();
+  });
+
+  it('allows in_progress → failed', async () => {
+    const client = mockClient();
+    (client.missions.plans.get as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { step_id: 's1', status: 'in_progress', sequence: 1 },
+    ]);
+    const svc = new MissionService({ client, logger: logger(), dataDir });
+    await svc.updateSlugState('m', { mission_id: 'mis_1', run_id: 'run_1' });
+
+    await svc.updatePlanStep('m', 's1', 'failed');
+    expect(client.missions.plans.updateStep).toHaveBeenCalled();
+  });
+
+  it('rejects completed → pending (terminal cannot go backwards)', async () => {
+    const client = mockClient();
+    (client.missions.plans.get as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { step_id: 's1', status: 'completed', sequence: 1 },
+    ]);
+    const svc = new MissionService({ client, logger: logger(), dataDir });
+    await svc.updateSlugState('m', { mission_id: 'mis_1', run_id: 'run_1' });
+
+    await expect(svc.updatePlanStep('m', 's1', 'pending')).rejects.toThrow(/terminal state.*completed/);
+    expect(client.missions.plans.updateStep).not.toHaveBeenCalled();
+  });
+
+  it('rejects failed → in_progress (terminal cannot go backwards)', async () => {
+    const client = mockClient();
+    (client.missions.plans.get as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { step_id: 's1', status: 'failed', sequence: 1 },
+    ]);
+    const svc = new MissionService({ client, logger: logger(), dataDir });
+    await svc.updateSlugState('m', { mission_id: 'mis_1', run_id: 'run_1' });
+
+    await expect(svc.updatePlanStep('m', 's1', 'in_progress')).rejects.toThrow(/terminal state.*failed/);
+  });
+
+  it('rejects skipped → pending (terminal cannot go backwards)', async () => {
+    const client = mockClient();
+    (client.missions.plans.get as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { step_id: 's1', status: 'skipped', sequence: 1 },
+    ]);
+    const svc = new MissionService({ client, logger: logger(), dataDir });
+    await svc.updateSlugState('m', { mission_id: 'mis_1', run_id: 'run_1' });
+
+    await expect(svc.updatePlanStep('m', 's1', 'pending')).rejects.toThrow(/terminal state.*skipped/);
+  });
+
+  it('rejects pending → completed (must go through in_progress)', async () => {
+    const client = mockClient();
+    (client.missions.plans.get as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { step_id: 's1', status: 'pending', sequence: 1 },
+    ]);
+    const svc = new MissionService({ client, logger: logger(), dataDir });
+    await svc.updateSlugState('m', { mission_id: 'mis_1', run_id: 'run_1' });
+
+    await expect(svc.updatePlanStep('m', 's1', 'completed')).rejects.toThrow(/Invalid transition.*pending.*completed/);
+  });
+
+  it('rejects pending → failed (must go through in_progress)', async () => {
+    const client = mockClient();
+    (client.missions.plans.get as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { step_id: 's1', status: 'pending', sequence: 1 },
+    ]);
+    const svc = new MissionService({ client, logger: logger(), dataDir });
+    await svc.updateSlugState('m', { mission_id: 'mis_1', run_id: 'run_1' });
+
+    await expect(svc.updatePlanStep('m', 's1', 'failed')).rejects.toThrow(/Invalid transition.*pending.*failed/);
+  });
+
+  it('throws if step not found', async () => {
+    const client = mockClient();
+    (client.missions.plans.get as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { step_id: 's1', status: 'pending', sequence: 1 },
+    ]);
+    const svc = new MissionService({ client, logger: logger(), dataDir });
+    await svc.updateSlugState('m', { mission_id: 'mis_1', run_id: 'run_1' });
+
+    await expect(svc.updatePlanStep('m', 'nonexistent', 'in_progress')).rejects.toThrow(/not found/);
   });
 });
 

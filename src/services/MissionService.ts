@@ -255,6 +255,7 @@ export class MissionService {
 
   /**
    * Complete a mission: update run status and remove state.
+   * Rejects if any plan steps are still non-terminal (pending/in_progress).
    */
   async completeMission(params: CompleteMissionParams): Promise<void> {
     const existing = await this.getSlugState(params.missionSlug);
@@ -263,6 +264,19 @@ export class MissionService {
 
     if (!missionId || !runId) {
       throw new Error(`No active mission found for slug '${params.missionSlug}'`);
+    }
+
+    // Guard: all steps must be in a terminal state before completing
+    const steps = await this.client.missions.plans.get(missionId, runId);
+    const nonTerminal = steps.filter(
+      (s) => s.status !== 'completed' && s.status !== 'failed' && s.status !== 'skipped',
+    );
+    if (nonTerminal.length > 0) {
+      const summary = nonTerminal.map((s) => `${s.step_id} (${s.status})`).join(', ');
+      throw new Error(
+        `Cannot complete mission '${params.missionSlug}': ${nonTerminal.length} step(s) still non-terminal: ${summary}. ` +
+          `Mark each step as completed, failed, or skipped before completing the mission.`,
+      );
     }
 
     await this.client.missions.runs.update(missionId, runId, {
@@ -373,12 +387,51 @@ export class MissionService {
     return this.client.missions.events.list(existing.mission_id, existing.run_id);
   }
 
-  /** Update a plan step status. */
+  /**
+   * Update a plan step status with state machine enforcement.
+   *
+   * Valid transitions:
+   *   pending → in_progress
+   *   pending → skipped
+   *   in_progress → completed
+   *   in_progress → failed
+   *   in_progress → skipped
+   *
+   * Terminal states (completed, failed, skipped) cannot transition backwards.
+   */
   async updatePlanStep(slug: string, stepId: string, status: string) {
     const existing = await this.getSlugState(slug);
     if (!existing.mission_id || !existing.run_id) {
       throw new Error(`No active mission found for slug '${slug}'`);
     }
+
+    // Fetch current step status for state machine validation
+    const steps = await this.client.missions.plans.get(existing.mission_id, existing.run_id);
+    const step = steps.find((s) => s.step_id === stepId);
+    if (!step) {
+      throw new Error(`Step '${stepId}' not found in mission '${slug}'`);
+    }
+
+    const TERMINAL = new Set(['completed', 'failed', 'skipped']);
+    const VALID_TRANSITIONS: Record<string, Set<string>> = {
+      pending: new Set(['in_progress', 'skipped']),
+      in_progress: new Set(['completed', 'failed', 'skipped']),
+    };
+
+    if (TERMINAL.has(step.status)) {
+      throw new Error(
+        `Cannot update step '${stepId}': already in terminal state '${step.status}'. Terminal states (completed, failed, skipped) cannot be changed.`,
+      );
+    }
+
+    const allowed = VALID_TRANSITIONS[step.status];
+    if (allowed && !allowed.has(status)) {
+      throw new Error(
+        `Invalid transition for step '${stepId}': '${step.status}' → '${status}'. ` +
+          `Allowed transitions from '${step.status}': ${[...(allowed ?? [])].join(', ')}.`,
+      );
+    }
+
     return this.client.missions.plans.updateStep(existing.mission_id, existing.run_id, stepId, status);
   }
 
