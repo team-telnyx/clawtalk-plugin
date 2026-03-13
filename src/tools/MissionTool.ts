@@ -115,8 +115,17 @@ export const MissionMemorySchema = Type.Object({
 });
 
 export const MissionListSchema = Type.Object({
-  server: Type.Optional(Type.Boolean({ description: 'Fetch missions from the server API instead of local state. Use this to look up any mission by name or see historical missions.' })),
-  status: Type.Optional(Type.String({ description: 'Filter by status when fetching from server (e.g. "running", "succeeded", "cancelled", "failed").' })),
+  server: Type.Optional(
+    Type.Boolean({
+      description:
+        'Fetch missions from the server API instead of local state. Use this to look up any mission by name or see historical missions.',
+    }),
+  ),
+  status: Type.Optional(
+    Type.String({
+      description: 'Filter by status when fetching from server (e.g. "running", "succeeded", "cancelled", "failed").',
+    }),
+  ),
   search: Type.Optional(Type.String({ description: 'Search missions by name when fetching from server.' })),
 });
 
@@ -157,15 +166,18 @@ export class MissionInitTool {
         steps,
       });
 
-      return formatResult({
-        missionId: result.missionId,
-        runId: result.runId,
-        slug: result.slug,
-        resumed: result.resumed,
-        message: result.resumed
-          ? `Resumed existing mission '${result.slug}'`
-          : `Created mission '${result.slug}' with run ${result.runId}`,
-      }, true);
+      return formatResult(
+        {
+          missionId: result.missionId,
+          runId: result.runId,
+          slug: result.slug,
+          resumed: result.resumed,
+          message: result.resumed
+            ? `Resumed existing mission '${result.slug}'`
+            : `Created mission '${result.slug}' with run ${result.runId}`,
+        },
+        true,
+      );
     } catch (err) {
       throw ToolError.fromError('clawtalk_mission_init', err);
     }
@@ -243,12 +255,15 @@ export class MissionScheduleTool {
         });
       }
 
-      return formatResult({
-        eventId,
-        channel,
-        scheduledAt: raw.scheduledAt,
-        message: `Scheduled ${channel} event ${eventId} for ${raw.scheduledAt}`,
-      }, true);
+      return formatResult(
+        {
+          eventId,
+          channel,
+          scheduledAt: raw.scheduledAt,
+          message: `Scheduled ${channel} event ${eventId} for ${raw.scheduledAt}`,
+        },
+        true,
+      );
     } catch (err) {
       throw ToolError.fromError('clawtalk_mission_schedule', err);
     }

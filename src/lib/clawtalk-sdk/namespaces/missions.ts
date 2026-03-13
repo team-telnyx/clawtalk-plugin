@@ -100,10 +100,7 @@ class MissionEventsNamespace {
   }
 
   async aggregate(missionId: string): Promise<MissionEventsAggregateResponse> {
-    return this.request<MissionEventsAggregateResponse>(
-      'GET',
-      resolve(ENDPOINTS.getMissionEvents.path, { missionId }),
-    );
+    return this.request<MissionEventsAggregateResponse>('GET', resolve(ENDPOINTS.getMissionEvents.path, { missionId }));
   }
 }
 

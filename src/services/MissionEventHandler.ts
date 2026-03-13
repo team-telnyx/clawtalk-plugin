@@ -204,9 +204,7 @@ export class MissionEventHandler {
   private formatSmsReceived(msg: WsMissionSmsReceived): string {
     let threadText = '';
     if (msg.thread_context && msg.thread_context.length > 0) {
-      const lines = msg.thread_context.map(
-        (m) => `  [${m.direction}] ${m.from} → ${m.to}: ${m.text}`,
-      );
+      const lines = msg.thread_context.map((m) => `  [${m.direction}] ${m.from} → ${m.to}: ${m.text}`);
       threadText = `\nConversation thread (last ${msg.thread_context.length} messages):\n${lines.join('\n')}\n`;
     }
 
