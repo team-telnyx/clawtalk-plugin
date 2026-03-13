@@ -16,7 +16,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import tty from 'node:tty';
-import { sleep } from 'openclaw/plugin-sdk';
+// Local sleep to avoid dependency on plugin-sdk in CLI context
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /* eslint-disable no-console -- CLI commands use console for output */
 
@@ -208,8 +209,26 @@ function validateServerUrl(url: string): string | undefined {
  */
 function findWsLog(wsLogPath: string): string | undefined {
   const ocDir = process.env.OPENCLAW_DIR ?? path.join(os.homedir(), '.openclaw');
-  const candidates = [wsLogPath, path.join(ocDir, 'ws.log'), path.join(ocDir, 'workspace', 'ws.log')];
-  return candidates.find((p) => fs.existsSync(p));
+  const candidates = [
+    wsLogPath,
+    path.join(ocDir, 'workspace', 'skills', 'clawdtalk-client', 'ws.log'),
+    path.join(ocDir, 'ws.log'),
+    path.join(ocDir, 'workspace', 'ws.log'),
+  ];
+  // Pick the most recently modified log file, not just the first that exists.
+  // Multiple stale logs can mislead the CLI into tailing the wrong file.
+  let best: { path: string; mtime: number } | undefined;
+  for (const p of candidates) {
+    try {
+      const stat = fs.statSync(p);
+      if (!best || stat.mtimeMs > best.mtime) {
+        best = { path: p, mtime: stat.mtimeMs };
+      }
+    } catch {
+      // doesn't exist, skip
+    }
+  }
+  return best?.path;
 }
 
 // ── Doctor types ────────────────────────────────────────────

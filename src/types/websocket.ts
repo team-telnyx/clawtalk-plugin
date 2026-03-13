@@ -147,6 +147,83 @@ export interface WsWalkieRequest extends WsEventBase {
   readonly session_key?: string;
 }
 
+// ── Mission Events (Server → Client) ─────────────────────────────
+
+export interface WsMissionCallStarted extends WsEventBase {
+  readonly event: 'mission.call_started';
+  readonly mission_id: string;
+  readonly step_id: string | null;
+  readonly conversation_id: string | null;
+  readonly from: string;
+  readonly to: string;
+}
+
+export interface WsMissionCallCompleted extends WsEventBase {
+  readonly event: 'mission.call_completed';
+  readonly mission_id: string;
+  readonly step_id: string | null;
+  readonly conversation_id: string | null;
+  readonly from: string;
+  readonly to: string;
+  readonly duration_sec: number | null;
+  readonly reason: string | null;
+  readonly transcript: Array<{ role: string; content: string; timestamp: string | null }>;
+}
+
+export interface WsMissionCallFailed extends WsEventBase {
+  readonly event: 'mission.call_failed';
+  readonly mission_id: string;
+  readonly step_id: string | null;
+  readonly from: string;
+  readonly to: string;
+  readonly reason: string;
+}
+
+export interface WsMissionInsightsReady extends WsEventBase {
+  readonly event: 'mission.insights_ready';
+  readonly mission_id: string;
+  readonly step_id: string | null;
+  readonly conversation_id: string | null;
+  readonly summary: string;
+}
+
+export interface WsMissionSmsDelivered extends WsEventBase {
+  readonly event: 'mission.sms_delivered';
+  readonly mission_id: string;
+  readonly step_id: string | null;
+  readonly from: string;
+  readonly to: string;
+  readonly status: string;
+  readonly errors: string[];
+}
+
+export interface SmsThreadMessage {
+  readonly direction: 'inbound' | 'outbound';
+  readonly from: string;
+  readonly to: string;
+  readonly text: string;
+  readonly timestamp: string;
+}
+
+export interface WsMissionSmsReceived extends WsEventBase {
+  readonly event: 'mission.sms_received';
+  readonly mission_id: string;
+  readonly step_id: string | null;
+  readonly from: string;
+  readonly to: string;
+  readonly text: string;
+  readonly message_id: string;
+  readonly thread_context?: SmsThreadMessage[];
+}
+
+export type WsMissionEvent =
+  | WsMissionCallStarted
+  | WsMissionCallCompleted
+  | WsMissionCallFailed
+  | WsMissionInsightsReady
+  | WsMissionSmsDelivered
+  | WsMissionSmsReceived;
+
 export type WsEvent =
   | WsContextRequest
   | WsCallStarted
@@ -154,7 +231,8 @@ export type WsEvent =
   | WsDeepToolRequest
   | WsSmsReceived
   | WsApprovalResponded
-  | WsWalkieRequest;
+  | WsWalkieRequest
+  | WsMissionEvent;
 
 export interface WsRequestLogs {
   readonly type: 'request_logs';

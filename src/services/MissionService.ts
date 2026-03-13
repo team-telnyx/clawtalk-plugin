@@ -47,6 +47,11 @@ function utcNow(): string {
 
 export class MissionService {
   private readonly client: ClawTalkClient;
+
+  /** Expose SDK client for tools that need direct API access (e.g. server-side mission list). */
+  getClient(): ClawTalkClient {
+    return this.client;
+  }
   private readonly logger: Logger;
   private readonly stateFilePath: string;
 

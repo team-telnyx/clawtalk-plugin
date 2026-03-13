@@ -114,7 +114,11 @@ export const MissionMemorySchema = Type.Object({
   value: Type.Optional(Type.String({ description: 'JSON value (for save/append)' })),
 });
 
-export const MissionListSchema = Type.Object({});
+export const MissionListSchema = Type.Object({
+  server: Type.Optional(Type.Boolean({ description: 'Fetch missions from the server API instead of local state. Use this to look up any mission by name or see historical missions.' })),
+  status: Type.Optional(Type.String({ description: 'Filter by status when fetching from server (e.g. "running", "succeeded", "cancelled", "failed").' })),
+  search: Type.Optional(Type.String({ description: 'Search missions by name when fetching from server.' })),
+});
 
 export const MissionGetPlanSchema = Type.Object({
   slug: Type.String({ description: 'Mission slug' }),
@@ -405,15 +409,53 @@ export class MissionListTool {
   readonly parameters = MissionListSchema;
 
   private readonly missions: MissionService;
+  private readonly logger: Logger;
 
   constructor(deps: ToolDeps) {
     this.missions = deps.missions;
+    this.logger = deps.logger;
   }
 
-  async execute(_toolCallId: string, _raw: Record<string, unknown>) {
+  async execute(_toolCallId: string, raw: Record<string, unknown>) {
     try {
+      const serverFetch = raw.server === true;
+
+      if (serverFetch) {
+        // Fetch from server API — includes all missions (historical, cancelled, etc.)
+        const client = this.missions.getClient();
+        let missions = await client.missions.list(50);
+
+        // Client-side filtering
+        if (raw.status && typeof raw.status === 'string') {
+          const statusFilter = raw.status.toLowerCase();
+          missions = missions.filter((m) => m.status.toLowerCase() === statusFilter);
+        }
+        if (raw.search && typeof raw.search === 'string') {
+          const searchTerm = raw.search.toLowerCase();
+          missions = missions.filter((m) => m.name.toLowerCase().includes(searchTerm));
+        }
+
+        return formatResult({
+          source: 'server',
+          missions: missions.map((m) => ({
+            id: m.id,
+            name: m.name,
+            status: m.status,
+            channel: m.channel,
+            target_count: m.target_count,
+            events_used: m.events_used,
+            result_summary: m.result_summary,
+            created_at: m.created_at,
+            updated_at: m.updated_at,
+          })),
+          message: missions.length ? `${missions.length} mission(s) from server` : 'No missions found',
+        });
+      }
+
+      // Default: local state only (active missions with plugin state)
       const list = await this.missions.listMissions();
       return formatResult({
+        source: 'local',
         missions: list.map((m) => ({
           slug: m.slug,
           missionName: m.state.mission_name,

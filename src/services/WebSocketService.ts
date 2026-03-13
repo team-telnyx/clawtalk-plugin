@@ -21,6 +21,7 @@ import type {
   WsDeepToolRequest,
   WsEvent,
   WsInboundMessage,
+  WsMissionEvent,
   WsOutboundMessage,
   WsRequestLogs,
   WsSmsReceived,
@@ -48,6 +49,7 @@ export interface WebSocketEvents extends EventMap {
   'sms.received': (msg: WsSmsReceived) => void;
   'approval.responded': (msg: WsApprovalResponded) => void;
   walkie_request: (msg: WsWalkieRequest) => void;
+  'mission.event': (msg: WsMissionEvent) => void;
   request_logs: (requestId: string) => void;
   connected: () => void;
   disconnected: (code: number, reason: string) => void;
@@ -389,6 +391,14 @@ export class WebSocketService extends TypedEmitter<WebSocketEvents> {
         break;
       case 'walkie_request':
         this.emit('walkie_request', msg);
+        break;
+      case 'mission.call_started':
+      case 'mission.call_completed':
+      case 'mission.call_failed':
+      case 'mission.insights_ready':
+      case 'mission.sms_delivered':
+      case 'mission.sms_received':
+        this.emit('mission.event', msg as WsMissionEvent);
         break;
       default:
         this.logger.debug?.(`Unhandled event: ${(msg as WsEvent).event}`);

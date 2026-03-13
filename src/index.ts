@@ -20,6 +20,7 @@ import { CallHandler } from './services/CallHandler.js';
 import { CoreBridge, type CoreConfig } from './services/CoreBridge.js';
 import { DeepToolHandler } from './services/DeepToolHandler.js';
 import { DoctorService } from './services/DoctorService.js';
+import { MissionEventHandler } from './services/MissionEventHandler.js';
 import { MissionService } from './services/MissionService.js';
 import { SmsHandler } from './services/SmsHandler.js';
 import { VoiceService } from './services/VoiceService.js';
@@ -27,6 +28,12 @@ import { WalkieHandler } from './services/WalkieHandler.js';
 import { readPackageVersion, WebSocketService } from './services/WebSocketService.js';
 import { createTools, type ToolServices } from './tools/index.js';
 import { WsLogger } from './utils/ws-logger.js';
+
+// ── Module-level singleton ──────────────────────────────────
+// Prevents duplicate WS connections when register() is called multiple times
+// (e.g. embedded agent sessions re-register plugins in the same process).
+let globalRuntime: ClawTalkRuntime | null = null;
+let globalRuntimePromise: Promise<ClawTalkRuntime> | null = null;
 
 // ── Runtime type ────────────────────────────────────────────
 
@@ -42,6 +49,7 @@ interface ClawTalkRuntime {
   readonly walkieHandler: WalkieHandler;
   readonly approvalManager: ApprovalManager;
   readonly missionService: MissionService;
+  readonly missionEventHandler: MissionEventHandler;
   readonly doctor: DoctorService;
 }
 
@@ -96,10 +104,14 @@ async function createClawTalkRuntime(params: {
   // 7. MissionService
   const missionService = new MissionService({ client, dataDir, logger });
 
-  // 8. DoctorService
+  // 8. MissionEventHandler
+  const missionEventHandler = new MissionEventHandler({ ws, coreBridge, missions: missionService, logger });
+  missionEventHandler.start();
+
+  // 9. DoctorService
   const doctor = new DoctorService({ client, ws, coreBridge, logger, openclawRoot: process.env.OPENCLAW_ROOT?.trim() });
 
-  // 9. Wire WebSocket events to handlers
+  // 10. Wire WebSocket events to handlers
   ws.on('context_request', (msg) => callHandler.handleContextRequest(msg));
   ws.on('call.started', (msg) => callHandler.handleCallStarted(msg));
   ws.on('call.ended', (msg) => callHandler.handleCallEnded(msg));
@@ -122,7 +134,7 @@ async function createClawTalkRuntime(params: {
     }
   });
 
-  // 10. Connect WebSocket
+  // 11. Connect WebSocket
   if (config.autoConnect) {
     try {
       await ws.connect();
@@ -144,6 +156,7 @@ async function createClawTalkRuntime(params: {
     walkieHandler,
     approvalManager,
     missionService,
+    missionEventHandler,
     doctor,
   };
 }
@@ -178,15 +191,13 @@ const clawTalkPlugin = {
 
     logger.info(`ClawTalk plugin loaded (server: ${config.server})`);
 
-    // ── Lazy runtime ──────────────────────────────────────
-    let runtimePromise: Promise<ClawTalkRuntime> | null = null;
-    let runtime: ClawTalkRuntime | null = null;
+    // ── Lazy runtime (module-level singleton) ──────────────
     const startedAt = Date.now();
 
     const ensureRuntime = async (): Promise<ClawTalkRuntime> => {
-      if (runtime) return runtime;
-      if (!runtimePromise) {
-        runtimePromise = createClawTalkRuntime({
+      if (globalRuntime) return globalRuntime;
+      if (!globalRuntimePromise) {
+        globalRuntimePromise = createClawTalkRuntime({
           config,
           coreConfig: api.config as CoreConfig,
           logger: logger,
@@ -194,8 +205,8 @@ const clawTalkPlugin = {
           dataDir: api.resolvePath('.'),
         });
       }
-      runtime = await runtimePromise;
-      return runtime;
+      globalRuntime = await globalRuntimePromise;
+      return globalRuntime;
     };
 
     // ── Register tools ──────────────────────────────────────
@@ -275,17 +286,17 @@ const clawTalkPlugin = {
         }
       },
       stop: async () => {
-        if (runtimePromise) {
+        if (globalRuntimePromise) {
           try {
-            const rt = await runtimePromise;
+            const rt = await globalRuntimePromise;
             rt.ws.disconnect();
             rt.wsLog.close();
             logger.info('ClawTalk service stopped');
           } catch {
             // Already cleaned up
           } finally {
-            runtimePromise = null;
-            runtime = null;
+            globalRuntimePromise = null;
+            globalRuntime = null;
           }
         }
       },
