@@ -120,7 +120,7 @@ function maskKey(key: string): string {
 }
 
 function getConfigPath(): string {
-  return process.env.OPENCLAW_CONFIG ?? path.join(os.homedir(), '.openclaw', 'openclaw.json');
+  return path.join(os.homedir(), '.openclaw', 'openclaw.json');
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: config shape is dynamic
@@ -209,7 +209,7 @@ function validateServerUrl(url: string): string | undefined {
  * runtime location, so we check known candidates.
  */
 function findWsLog(wsLogPath: string): string | undefined {
-  const ocDir = process.env.OPENCLAW_DIR ?? path.join(os.homedir(), '.openclaw');
+  const ocDir = path.join(os.homedir(), '.openclaw');
   const candidates = [
     wsLogPath,
     path.join(ocDir, 'workspace', 'skills', 'clawdtalk-client', 'ws.log'),
