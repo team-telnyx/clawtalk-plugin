@@ -19,34 +19,56 @@ openclaw plugins install clawtalk
 
 ## Configuration
 
-Add to your OpenClaw gateway config:
+After installing, open your OpenClaw config (`~/.openclaw/openclaw.json`) and add your API key:
 
-```yaml
-plugins:
-  clawtalk:
-    apiKey: "your-clawtalk-api-key"
-    ownerName: "Your Name"        # Used in voice greetings
-    agentName: "Your Agent"       # Agent identity on calls
+```json
+{
+  "plugins": {
+    "entries": {
+      "clawtalk": {
+        "enabled": true,
+        "apiKey": "your-clawtalk-api-key"
+      }
+    }
+  }
+}
 ```
 
-### All Options
+Then restart the gateway:
+
+```bash
+openclaw gateway restart
+```
+
+That's it. The plugin will connect to ClawTalk, authenticate via WebSocket, and register all 20 tools. Run `openclaw clawtalk doctor` to verify everything is healthy.
+
+### Optional Settings
+
+Everything below has sensible defaults. Only set them if you need to customise behaviour.
+
+```json
+{
+  "clawtalk": {
+    "apiKey": "your-api-key",
+    "ownerName": "Your Name",
+    "agentName": "My Agent"
+  }
+}
+```
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `apiKey` | — | **Required.** ClawTalk API key |
 | `server` | `https://clawdtalk.com` | ClawTalk server URL |
-| `ownerName` | `"there"` | Your name (used in greetings) |
-| `agentName` | `"ClawTalk"` | Agent name for voice context |
-| `greeting` | `"Hey {ownerName}, what's up?"` | Custom inbound call greeting |
-| `agentId` | `"main"` | OpenClaw agent ID |
+| `ownerName` | `"there"` | Your name — used in the inbound call greeting and voice context |
+| `agentName` | `"ClawTalk"` | Your agent's name — the AI identifies itself as this on calls |
+| `greeting` | `"Hey {ownerName}, what's up?"` | Spoken when you call your agent |
+| `agentId` | `"main"` | Which OpenClaw agent handles calls/SMS (multi-agent setups) |
 | `autoConnect` | `true` | Connect WebSocket on startup |
-| `voiceContext` | Built-in | Override the voice system prompt |
+| `voiceContext` | Built-in | Override the system prompt used during voice calls |
 | `missions.enabled` | `true` | Enable mission tools |
 | `missions.defaultVoice` | — | Default TTS voice for mission assistants |
 | `missions.defaultModel` | — | Default LLM for mission assistants |
-| `missions.observer.enabled` | `true` | Background mission lifecycle checks |
-| `missions.observer.intervalMs` | `300000` | Observer check interval (5 min) |
-| `missions.observer.staleThresholdMs` | `7200000` | Stale mission threshold (2 hours) |
 
 ## What It Does
 
