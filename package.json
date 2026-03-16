@@ -37,10 +37,30 @@
   "files": [
     "build",
     "openclaw.plugin.json",
-    "skills"
+    "skills",
+    "README.md"
   ],
   "openclaw": {
     "extensions": ["./build/index.js"]
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/team-telnyx/clawtalk-plugin"
+  },
+  "homepage": "https://clawdtalk.com",
+  "bugs": {
+    "url": "https://github.com/team-telnyx/clawtalk-plugin/issues"
+  },
+  "author": "ClawdTalk <support@clawdtalk.com>",
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "voice",
+    "calls",
+    "sms",
+    "ai-assistant",
+    "telnyx",
+    "clawtalk"
+  ],
   "license": "MIT"
 }
