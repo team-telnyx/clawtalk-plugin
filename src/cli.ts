@@ -62,7 +62,14 @@ const NC = '\x1b[0m';
  * A SIGINT handler ensures the terminal is restored if the user hits Ctrl+C.
  */
 function readlineSync(prompt: string, opts?: { silent?: boolean }): string {
-  const fd = fs.openSync('/dev/tty', 'r');
+  let fd: number;
+  try {
+    fd = fs.openSync('/dev/tty', 'r');
+  } catch {
+    throw new Error(
+      'Interactive input requires a TTY. Run this command in a terminal (not piped/backgrounded).',
+    );
+  }
   let ttyStream: tty.ReadStream | undefined;
   let sigintHandler: (() => void) | undefined;
 
@@ -428,7 +435,9 @@ export function registerClawTalkCli(params: { program: CommandLike; wsLogPath: s
   root
     .command('config')
     .description('Reconfigure ClawTalk API key and server URL')
-    .action(async () => {
+    .option('--api-key <key>', 'ClawTalk API key (cc_live_...)')
+    .option('--server <url>', 'ClawTalk server URL')
+    .action(async (options: { apiKey?: string; server?: string }) => {
       const json = loadConfigOrDie();
       const current = getPluginConfig(json);
 
@@ -442,10 +451,9 @@ export function registerClawTalkCli(params: { program: CommandLike; wsLogPath: s
       console.log(`  ${DIM}Current Server:  ${current.server ?? DEFAULT_SERVER}${NC}`);
       console.log();
 
-      const newKey = readlineSync('  New API key (blank to keep current): ', { silent: true });
-      const apiKey = newKey || current.apiKey;
+      const apiKey = options.apiKey || current.apiKey;
       if (!apiKey) {
-        console.error(`${RED}✗ No API key configured${NC}`);
+        console.error(`${RED}✗ No API key configured. Pass --api-key <key>${NC}`);
         process.exit(1);
       }
       if (!API_KEY_PATTERN.test(apiKey)) {
@@ -455,8 +463,7 @@ export function registerClawTalkCli(params: { program: CommandLike; wsLogPath: s
         process.exit(1);
       }
 
-      const newServer = readlineSync(`  Server URL [${current.server ?? DEFAULT_SERVER}]: `);
-      const server = newServer || current.server || DEFAULT_SERVER;
+      const server = options.server || current.server || DEFAULT_SERVER;
 
       const serverErr = validateServerUrl(server);
       if (serverErr) {
