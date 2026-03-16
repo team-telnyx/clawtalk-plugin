@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.4] - 2026-03-16
+
+### Removed
+- `openclaw clawtalk config` CLI command (broken in non-TTY contexts, edit openclaw.json directly)
+- `readlineSync` function and `tty` import (dead code after config removal)
+
+### Changed
+- Doctor/status messages now reference `plugins.entries.clawtalk.config` instead of removed config command
+
 ## [0.1.2] - 2026-03-13
 
 ### Added
