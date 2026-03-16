@@ -3,7 +3,6 @@
  *
  * Commands:
  *   openclaw clawtalk logs     — Tail the WS log file (live output)
- *   openclaw clawtalk config   — Reconfigure API key / server URL
  *   openclaw clawtalk doctor   — Verify API key and server connectivity
  *
  * Note: We define a minimal CommandLike interface instead of importing
@@ -15,7 +14,6 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import tty from 'node:tty';
 
 // Local sleep to avoid dependency on plugin-sdk in CLI context
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -42,7 +40,6 @@ type Logger = {
 // ── Constants ───────────────────────────────────────────────
 
 const DEFAULT_SERVER = 'https://clawdtalk.com';
-const API_KEY_PATTERN = /^cc_live_[a-f0-9]{40}$/;
 const SERVER_PATTERN = /clawtalk|clawdtalk/i;
 const DOCS_URL = 'https://clawdtalk.com/docs/plugin';
 
@@ -54,65 +51,6 @@ const BOLD = '\x1b[1m';
 const NC = '\x1b[0m';
 
 // ── Helpers ─────────────────────────────────────────────────
-
-/**
- * Synchronous readline from /dev/tty.
- * When silent is true, terminal echo is suppressed via Node's tty.ReadStream
- * raw mode so secrets (API keys) are not visible while typing.
- * A SIGINT handler ensures the terminal is restored if the user hits Ctrl+C.
- */
-function readlineSync(prompt: string, opts?: { silent?: boolean }): string {
-  const fd = fs.openSync('/dev/tty', 'r');
-  let ttyStream: tty.ReadStream | undefined;
-  let sigintHandler: (() => void) | undefined;
-
-  try {
-    if (opts?.silent && tty.isatty(fd)) {
-      ttyStream = new tty.ReadStream(fd);
-      ttyStream.setRawMode(true);
-
-      sigintHandler = () => {
-        ttyStream?.setRawMode(false);
-        process.stdout.write('\n');
-        process.exit(130);
-      };
-      process.on('SIGINT', sigintHandler);
-    }
-
-    process.stdout.write(prompt);
-
-    const chunks: Buffer[] = [];
-    const byte = Buffer.alloc(1);
-    while (true) {
-      const n = fs.readSync(fd, byte, 0, 1, null);
-      if (n === 0) break;
-      // In raw mode, Ctrl+C comes through as 0x03
-      if (byte[0] === 0x03) {
-        ttyStream?.setRawMode(false);
-        process.stdout.write('\n');
-        process.exit(130);
-      }
-      if (byte[0] === 0x0a || byte[0] === 0x0d) break; // \n or \r
-      // Backspace/delete support
-      if (byte[0] === 0x7f || byte[0] === 0x08) {
-        if (chunks.length > 0) chunks.pop();
-        continue;
-      }
-      chunks.push(Buffer.from(byte));
-    }
-
-    return Buffer.concat(chunks).toString('utf8').trim();
-  } finally {
-    if (ttyStream) {
-      ttyStream.setRawMode(false);
-      process.stdout.write('\n');
-    }
-    if (sigintHandler) {
-      process.removeListener('SIGINT', sigintHandler);
-    }
-    fs.closeSync(fd);
-  }
-}
 
 function maskKey(key: string): string {
   if (key.length < 12) return '****';
@@ -143,38 +81,6 @@ function loadConfigOrDie(): any {
   } catch {
     console.error(`${RED}✗ Could not read OpenClaw config at ${getConfigPath()}${NC}`);
     process.exit(1);
-  }
-}
-
-/**
- * Atomic config write: backup original, write to .tmp, rename into place.
- * Backup is preserved on failure and cleaned on success.
- * Tmp file is cleaned on rename failure.
- */
-function writeConfig(json: Record<string, unknown>): void {
-  const configPath = getConfigPath();
-  const tmpPath = `${configPath}.tmp.${process.pid}`;
-  const backupPath = `${configPath}.bak.${process.pid}`;
-
-  fs.copyFileSync(configPath, backupPath);
-  fs.writeFileSync(tmpPath, `${JSON.stringify(json, null, 2)}\n`);
-
-  try {
-    fs.renameSync(tmpPath, configPath);
-  } catch (err) {
-    // Clean up tmp on failure, preserve backup
-    try {
-      fs.unlinkSync(tmpPath);
-    } catch {
-      /* ignore */
-    }
-    throw err;
-  }
-
-  try {
-    fs.unlinkSync(backupPath);
-  } catch {
-    /* ignore */
   }
 }
 
@@ -320,7 +226,7 @@ export function registerClawTalkCli(params: { program: CommandLike; wsLogPath: s
       if (!apiKey) {
         console.log(`  Health:   ${RED}NO API KEY${NC}`);
         console.log();
-        console.log(`  Run ${BOLD}openclaw clawtalk config${NC} to set your API key.`);
+        console.log(`  Set your API key in ${BOLD}plugins.entries.clawtalk.config.apiKeys${NC} in openclaw.json.`);
         console.log();
         process.exit(1);
       }
@@ -330,8 +236,6 @@ export function registerClawTalkCli(params: { program: CommandLike; wsLogPath: s
         console.log(`  Health:   ${RED}UNSUPPORTED_SERVER${NC}`);
         console.log();
         console.log(`  ${serverErr}`);
-        console.log(`  Run ${BOLD}openclaw clawtalk config${NC} to fix.`);
-        console.log();
         process.exit(1);
       }
 
@@ -352,7 +256,7 @@ export function registerClawTalkCli(params: { program: CommandLike; wsLogPath: s
           console.log('  Your API key was rejected. Generate a new one at:');
           console.log(`  ${baseUrl}/portal/dashboard`);
           console.log();
-          console.log(`  Then run: ${BOLD}openclaw clawtalk config${NC}`);
+          console.log(`  Then update ${BOLD}plugins.entries.clawtalk.config.apiKey${NC} in openclaw.json`);
           console.log();
           process.exit(1);
         } else {
@@ -421,69 +325,6 @@ export function registerClawTalkCli(params: { program: CommandLike; wsLogPath: s
         }
       }
 
-      console.log();
-    });
-
-  // ── config ─────────────────────────────────────────────
-  root
-    .command('config')
-    .description('Reconfigure ClawTalk API key and server URL')
-    .action(async () => {
-      const json = loadConfigOrDie();
-      const current = getPluginConfig(json);
-
-      console.log();
-      console.log(`${BOLD}ClawTalk — Reconfigure${NC}`);
-      console.log();
-
-      if (current.apiKey) {
-        console.log(`  ${DIM}Current API Key: ${maskKey(current.apiKey)}${NC}`);
-      }
-      console.log(`  ${DIM}Current Server:  ${current.server ?? DEFAULT_SERVER}${NC}`);
-      console.log();
-
-      const newKey = readlineSync('  New API key (blank to keep current): ', { silent: true });
-      const apiKey = newKey || current.apiKey;
-      if (!apiKey) {
-        console.error(`${RED}✗ No API key configured${NC}`);
-        process.exit(1);
-      }
-      if (!API_KEY_PATTERN.test(apiKey)) {
-        console.error(`${RED}✗ Invalid API key format${NC}`);
-        console.error('  Keys start with cc_live_ followed by 40 hex characters.');
-        console.error(`  Generate one at: ${DEFAULT_SERVER}/portal/dashboard`);
-        process.exit(1);
-      }
-
-      const newServer = readlineSync(`  Server URL [${current.server ?? DEFAULT_SERVER}]: `);
-      const server = newServer || current.server || DEFAULT_SERVER;
-
-      const serverErr = validateServerUrl(server);
-      if (serverErr) {
-        console.error(`\n${RED}✗ UNSUPPORTED_SERVER${NC}`);
-        console.error(`  ${serverErr}`);
-        process.exit(1);
-      }
-      console.log();
-
-      // Mutate the already-loaded config and write once
-      json.plugins = json.plugins ?? {};
-      json.plugins.entries = json.plugins.entries ?? {};
-      json.plugins.entries.clawtalk = json.plugins.entries.clawtalk ?? {};
-      json.plugins.entries.clawtalk.config = { apiKey, server };
-
-      try {
-        writeConfig(json);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`${RED}✗ Failed to write config${NC}`);
-        console.error(`  ${DIM}${msg}${NC}`);
-        process.exit(1);
-      }
-
-      console.log(`  ${GREEN}✓${NC} Config updated`);
-      console.log();
-      console.log(`  Restart to apply: ${BOLD}openclaw gateway restart${NC}`);
       console.log();
     });
 }
