@@ -265,7 +265,7 @@ export class WebSocketService extends TypedEmitter<WebSocketEvents> {
       api_key: this.config.apiKey,
       client_version: this.clientVersion,
       owner_name: this.config.ownerName !== 'there' ? this.config.ownerName : undefined,
-      agent_name: this.config.agentName,
+      agent_name: this.config.agentName !== 'ClawTalk' ? this.config.agentName : undefined,
     };
 
     this.ws.send(JSON.stringify(authMsg));
