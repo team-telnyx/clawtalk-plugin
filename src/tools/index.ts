@@ -13,6 +13,7 @@ import type { WebSocketService } from '../services/WebSocketService.js';
 import type { Logger } from '../types/plugin.js';
 import { ApproveTool } from './ApproveTool.js';
 import { AssistantsTool } from './AssistantsTool.js';
+import { BotConfigTool } from './BotConfigTool.js';
 import { CallStatusTool, CallTool } from './CallTool.js';
 import { InsightsTool } from './InsightsTool.js';
 import {
@@ -73,6 +74,7 @@ export function createTools(services: ToolServices): ClawTalkTool[] {
     new SmsConversationsTool({ client, logger }),
     new ApproveTool({ approvalManager, logger }),
     new StatusTool({ config, client, ws, logger }),
+    new BotConfigTool({ client, logger }),
 
     // Phase 5: Mission lifecycle
     new MissionInitTool(missionDeps),
