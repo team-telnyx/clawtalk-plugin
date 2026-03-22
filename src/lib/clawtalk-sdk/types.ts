@@ -35,7 +35,12 @@ export interface UserMeResponse {
   readonly effective_days_remaining: number | null;
   readonly subscription_status: string;
   readonly paranoid_mode: boolean;
-  readonly voice_preference: string | null;
+  readonly agent_name?: string | null;
+  readonly display_name?: string | null;
+  readonly bot_role?: string | null;
+  readonly custom_instructions?: string | null;
+  readonly greeting?: string | null;
+  readonly voice_preference?: string | null;
   readonly system_number: string | null;
   readonly dedicated_number: string | null;
   readonly totp_enabled: boolean;
