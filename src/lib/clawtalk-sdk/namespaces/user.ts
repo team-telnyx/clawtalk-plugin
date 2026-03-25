@@ -8,4 +8,8 @@ export class UserNamespace {
   async me(): Promise<UserMeResponse> {
     return this.request<UserMeResponse>('GET', ENDPOINTS.getMe.path);
   }
+
+  async updateMe(fields: Record<string, unknown>): Promise<void> {
+    await this.request('PATCH', ENDPOINTS.updateMe.path, fields);
+  }
 }

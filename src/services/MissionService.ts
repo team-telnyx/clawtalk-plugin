@@ -221,7 +221,7 @@ export class MissionService {
       name: params.name,
       instructions: params.instructions,
       greeting: params.greeting ?? '',
-      voice: params.voice ?? 'Rime.ArcanaV3.astra',
+      voice: params.voice,
       model: params.model ?? 'openai/gpt-4o',
       tools: params.tools as Array<{ type: string; [key: string]: unknown }>,
       enabled_features: params.features ?? ['telephony', 'messaging'],

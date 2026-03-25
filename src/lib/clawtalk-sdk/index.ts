@@ -66,4 +66,6 @@ export type {
   SmsResponse,
   UpdateStepParams,
   UserMeResponse,
+  Voice,
+  VoicesResponse,
 } from './types.js';

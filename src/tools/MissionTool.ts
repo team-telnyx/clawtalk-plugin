@@ -58,7 +58,7 @@ export const MissionSetupAgentSchema = Type.Object({
   name: Type.String({ description: 'Assistant name' }),
   instructions: Type.String({ description: 'Voice agent instructions' }),
   greeting: Type.Optional(Type.String({ description: 'Greeting spoken when call connects. Default: empty' })),
-  voice: Type.Optional(Type.String({ description: 'Voice model. Default: Rime.ArcanaV3.astra' })),
+  voice: Type.Optional(Type.String({ description: 'Voice model. Default: inherits user voice preference' })),
   model: Type.Optional(Type.String({ description: 'LLM model. Default: openai/gpt-4o' })),
 });
 

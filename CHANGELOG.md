@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2026-03-25
+
+### Added
+- **BotConfigTool** (`clawtalk_bot_config`): New tool for managing bot settings
+  - `get` action: Read current bot config (name, role, greeting, voice, language, instructions)
+  - `update` action: Update any combination of bot settings
+  - `list_voices` action: Browse 2,200+ TTS voices with filters (provider, language, gender, accent, search)
+  - Voice cache with 5 minute TTL per provider
+  - Results capped at 20 with total count to prevent context bloat
+- **VoicesNamespace** in ClawTalk SDK: `client.voices.list(provider?)` method
+- 22 new tests for BotConfigTool
+
+### Changed
+- **Mission assistant voice inheritance**: `clawtalk_mission_setup_agent` no longer defaults to `Rime.ArcanaV3.astra`
+  - If `voice` param omitted, server now uses user's `voice_preference` (with fallback to system default)
+  - Explicit `voice` param still works for override
+- Updated MissionTool schema description to reflect voice inheritance behavior
+
 ## [0.1.4] - 2026-03-16
 
 ### Removed
