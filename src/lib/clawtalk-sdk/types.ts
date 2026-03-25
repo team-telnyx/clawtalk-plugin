@@ -36,6 +36,11 @@ export interface UserMeResponse {
   readonly subscription_status: string;
   readonly paranoid_mode: boolean;
   readonly voice_preference: string | null;
+  readonly agent_name: string | null;
+  readonly display_name: string | null;
+  readonly bot_role: string | null;
+  readonly custom_instructions: string | null;
+  readonly greeting: string | null;
   readonly system_number: string | null;
   readonly dedicated_number: string | null;
   readonly totp_enabled: boolean;
@@ -60,6 +65,27 @@ export interface UserMeResponse {
     readonly call_seconds: number;
     readonly mission_events: number;
   };
+}
+
+// ── Voices ────────────────────────────────────────────────────
+
+export interface Voice {
+  readonly id: string;
+  readonly name: string;
+  readonly provider: string;
+  readonly model: string | null;
+  readonly language: string;
+  readonly gender: string | null;
+  readonly label: string | null;
+  readonly accent: string | null;
+  readonly age: string | null;
+}
+
+export interface VoicesResponse {
+  readonly default_voice: string;
+  readonly voices: Voice[];
+  readonly providers: string[];
+  readonly total: number;
 }
 
 // ── Calls ─────────────────────────────────────────────────────

@@ -37,6 +37,10 @@ export interface Endpoint {
 export const ENDPOINTS = {
   // ── User (/v1 + user.js) ────────────────────────────────
   getMe: { method: 'GET', path: '/v1/me', sdkMethod: 'getMe', write: false },
+  updateMe: { method: 'PATCH', path: '/v1/me', sdkMethod: 'updateMe', write: true },
+
+  // ── Voices (/v1 + user.js) ───────────────────────────────
+  listVoices: { method: 'GET', path: '/v1/voices', sdkMethod: 'listVoices', write: false },
 
   // ── Calls (/v1/calls + calls.js) ────────────────────────
   initiateCall: { method: 'POST', path: '/v1/calls', sdkMethod: 'initiateCall', write: true },

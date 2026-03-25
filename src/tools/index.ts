@@ -13,6 +13,7 @@ import type { WebSocketService } from '../services/WebSocketService.js';
 import type { Logger } from '../types/plugin.js';
 import { ApproveTool } from './ApproveTool.js';
 import { AssistantsTool } from './AssistantsTool.js';
+import { BotConfigTool } from './BotConfigTool.js';
 import { CallStatusTool, CallTool } from './CallTool.js';
 import { InsightsTool } from './InsightsTool.js';
 import {
@@ -66,6 +67,7 @@ export function createTools(services: ToolServices): ClawTalkTool[] {
 
   return [
     // Phase 4
+    new BotConfigTool({ client, logger }),
     new CallTool({ client, logger }),
     new CallStatusTool({ client, logger }),
     new SmsTool({ client, logger }),
