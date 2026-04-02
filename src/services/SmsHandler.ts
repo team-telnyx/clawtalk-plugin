@@ -12,7 +12,16 @@ import type { WsSmsReceived } from '../types/websocket.js';
 import type { ICoreBridge } from './CoreBridge.js';
 
 const SMS_TIMEOUT_MS = 60_000;
-const SMS_MAX_REPLY_LENGTH = 1500;
+const SMS_MAX_REPLY_LENGTH = 300;
+
+// System prompt for SMS sessions — HARD LIMIT enforced
+const SMS_SYSTEM_PROMPT = `You are replying via SMS. HARD LIMITS:
+
+1. MAX 300 CHARACTERS (messages over 300 chars are rejected)
+2. PLAIN TEXT ONLY — no markdown, no **bold**, no _italics_, no bullets, no headers, no formatting whatsoever
+3. No emojis
+
+Write like a text message: short, direct, conversational. If you can't fit the answer in 300 chars, give the most useful summary possible.`;
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, '');
@@ -39,18 +48,26 @@ export class SmsHandler {
   }
 
   async handle(msg: WsSmsReceived): Promise<void> {
-    const { from, body, message_id: messageId } = msg;
+    const { from, body, message_id: messageId, media_urls: mediaUrls } = msg;
 
     this.logger.info(`SMS received from ${maskPhone(from)}: ${body.substring(0, 50)}`);
 
     const sessionKey = `clawtalk:sms:${normalizePhone(from)}`;
-    const smsPrefix = `[SMS from ${from}] Reply concisely (under 300 chars). No markdown. `;
+
+    // Build prompt - include media URLs so agent can analyze them
+    let prompt = body || '';
+
+    if (mediaUrls && mediaUrls.length > 0) {
+      this.logger.info(`MMS with ${mediaUrls.length} media attachment(s)`);
+      const mediaList = mediaUrls.map((url) => `- ${url}`).join('\n');
+      prompt = `${prompt}\n\n[MMS Attachments - analyze these images using the image tool]\n${mediaList}`;
+    }
 
     try {
       const reply = await this.coreBridge.runAgentTurn({
         sessionKey,
-        prompt: body,
-        extraSystemPrompt: smsPrefix,
+        prompt,
+        extraSystemPrompt: SMS_SYSTEM_PROMPT,
         timeoutMs: SMS_TIMEOUT_MS,
       });
 

@@ -132,6 +132,7 @@ export interface WsSmsReceived extends WsEventBase {
   readonly from: string;
   readonly body: string;
   readonly message_id: string;
+  readonly media_urls?: string[];
 }
 
 export interface WsApprovalResponded extends WsEventBase {
