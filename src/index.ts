@@ -66,6 +66,8 @@ async function createClawTalkRuntime(params: {
 }): Promise<ClawTalkRuntime> {
   const { config, coreConfig, logger, enqueueSystemEvent, dataDir } = params;
 
+  const hasApiKey = Boolean(config.apiKey);
+
   // 1. SDK client
   const clientVersion = readPackageVersion();
   const client = new ClawTalkClient({
@@ -117,7 +119,9 @@ async function createClawTalkRuntime(params: {
     logger,
     config: config.missions.observer,
   });
-  missionObserver.start();
+  if (hasApiKey) {
+    missionObserver.start();
+  }
 
   // 9. DoctorService
   const doctor = new DoctorService({ client, ws, coreBridge, logger, openclawRoot: process.env.OPENCLAW_ROOT?.trim() });
@@ -145,8 +149,8 @@ async function createClawTalkRuntime(params: {
     }
   });
 
-  // 11. Connect WebSocket
-  if (config.autoConnect) {
+  // 11. Connect WebSocket (skip if no API key — auth will fail immediately)
+  if (hasApiKey && config.autoConnect) {
     try {
       await ws.connect();
       logger.info('ClawTalk service started');
@@ -188,9 +192,14 @@ const clawTalkPlugin = {
     // OpenClaw's plugin API logger tags all output as [gateway] — there's no
     // built-in per-plugin scoping. Channels like Slack get [slack] via the
     // channel dock's runtime.log, which is a separate system.
-    // We use api.logger directly and accept [gateway] tagging for now.
     // TODO: request per-plugin logger scoping upstream in OpenClaw.
-    const logger = api.logger;
+    const raw = api.logger;
+    const logger: typeof raw = {
+      info: (msg: string) => raw.info(`[clawtalk] ${msg}`),
+      warn: raw.warn ? (msg: string) => raw.warn!(`[clawtalk] ${msg}`) : undefined,
+      error: raw.error ? (msg: string) => raw.error!(`[clawtalk] ${msg}`) : undefined,
+      debug: raw.debug ? (msg: string) => raw.debug!(`[clawtalk] ${msg}`) : undefined,
+    };
 
     if (!config.apiKey) {
       logger.warn('ClawTalk plugin loaded without API key. Tools will fail until configured.');
