@@ -192,9 +192,14 @@ const clawTalkPlugin = {
     // OpenClaw's plugin API logger tags all output as [gateway] — there's no
     // built-in per-plugin scoping. Channels like Slack get [slack] via the
     // channel dock's runtime.log, which is a separate system.
-    // We use api.logger directly and accept [gateway] tagging for now.
     // TODO: request per-plugin logger scoping upstream in OpenClaw.
-    const logger = api.logger;
+    const raw = api.logger;
+    const logger: typeof raw = {
+      info: (msg: string) => raw.info(`[clawtalk] ${msg}`),
+      warn: raw.warn ? (msg: string) => raw.warn!(`[clawtalk] ${msg}`) : undefined,
+      error: raw.error ? (msg: string) => raw.error!(`[clawtalk] ${msg}`) : undefined,
+      debug: raw.debug ? (msg: string) => raw.debug!(`[clawtalk] ${msg}`) : undefined,
+    };
 
     if (!config.apiKey) {
       logger.warn('ClawTalk plugin loaded without API key. Tools will fail until configured.');
