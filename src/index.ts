@@ -66,6 +66,8 @@ async function createClawTalkRuntime(params: {
 }): Promise<ClawTalkRuntime> {
   const { config, coreConfig, logger, enqueueSystemEvent, dataDir } = params;
 
+  const hasApiKey = Boolean(config.apiKey);
+
   // 1. SDK client
   const clientVersion = readPackageVersion();
   const client = new ClawTalkClient({
@@ -117,7 +119,9 @@ async function createClawTalkRuntime(params: {
     logger,
     config: config.missions.observer,
   });
-  missionObserver.start();
+  if (hasApiKey) {
+    missionObserver.start();
+  }
 
   // 9. DoctorService
   const doctor = new DoctorService({ client, ws, coreBridge, logger, openclawRoot: process.env.OPENCLAW_ROOT?.trim() });
@@ -145,8 +149,8 @@ async function createClawTalkRuntime(params: {
     }
   });
 
-  // 11. Connect WebSocket
-  if (config.autoConnect) {
+  // 11. Connect WebSocket (skip if no API key — auth will fail immediately)
+  if (hasApiKey && config.autoConnect) {
     try {
       await ws.connect();
       logger.info('ClawTalk service started');
