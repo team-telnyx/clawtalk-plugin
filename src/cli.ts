@@ -61,6 +61,10 @@ function getConfigPath(): string {
   return path.join(os.homedir(), '.openclaw', 'openclaw.json');
 }
 
+function getEnvPath(): string {
+  return path.join(os.homedir(), '.openclaw', '.env');
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: config shape is dynamic
 function readConfig(): any {
   const configPath = getConfigPath();
@@ -87,6 +91,53 @@ function loadConfigOrDie(): any {
 // biome-ignore lint/suspicious/noExplicitAny: config shape is dynamic
 function getPluginConfig(config: any): { apiKey?: string; server?: string } {
   return config?.plugins?.entries?.clawtalk?.config ?? {};
+}
+
+function parseEnvValue(value: string): string {
+  const trimmed = value.trim();
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+export function readOpenClawEnv(envPath = getEnvPath()): Record<string, string> {
+  try {
+    const contents = fs.readFileSync(envPath, 'utf8');
+    const result: Record<string, string> = {};
+    for (const line of contents.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+
+      const match = trimmed.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+      if (!match) continue;
+
+      const [, name, value] = match;
+      if (!name || value === undefined) continue;
+
+      result[name] = parseEnvValue(value);
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+export function resolveConfigString(
+  value: string | undefined,
+  localEnv = readOpenClawEnv(),
+): { value?: string; source?: string; reference?: string; unresolved?: boolean } {
+  if (!value) return {};
+
+  const match = value.match(/^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/);
+  if (!match) return { value };
+
+  const envName = match[1];
+  if (!envName) return { reference: value, unresolved: true };
+
+  const resolved = localEnv[envName];
+  if (resolved) return { value: resolved, source: envName, reference: value };
+  return { reference: value, unresolved: true };
 }
 
 /**
@@ -214,19 +265,31 @@ export function registerClawTalkCli(params: { program: CommandLike; wsLogPath: s
     .action(async () => {
       const config = loadConfigOrDie();
       const { apiKey, server } = getPluginConfig(config);
+      const resolvedApiKey = resolveConfigString(apiKey);
       const baseUrl = (server ?? DEFAULT_SERVER).replace(/\/+$/, '');
-      const headers = { Authorization: `Bearer ${apiKey ?? ''}` };
+      const headers = { Authorization: `Bearer ${resolvedApiKey.value ?? ''}` };
 
       console.log();
       console.log(`${BOLD}ClawTalk Doctor${NC}`);
       console.log();
-      console.log(`  API Key:  ${apiKey ? maskKey(apiKey) : `${RED}not set${NC}`}`);
+      if (resolvedApiKey.value) {
+        const source = resolvedApiKey.source ? ` ${DIM}(from ${resolvedApiKey.source})${NC}` : '';
+        console.log(`  API Key:  ${maskKey(resolvedApiKey.value)}${source}`);
+      } else if (resolvedApiKey.unresolved) {
+        console.log(`  API Key:  ${RED}unresolved${NC} ${DIM}(${resolvedApiKey.reference})${NC}`);
+      } else {
+        console.log(`  API Key:  ${RED}not set${NC}`);
+      }
       console.log(`  Server:   ${baseUrl}`);
 
-      if (!apiKey) {
+      if (!resolvedApiKey.value) {
         console.log(`  Health:   ${RED}NO API KEY${NC}`);
         console.log();
-        console.log(`  Set your API key in ${BOLD}plugins.entries.clawtalk.config.apiKeys${NC} in openclaw.json.`);
+        if (resolvedApiKey.unresolved) {
+          console.log(`  Set ${BOLD}${resolvedApiKey.reference}${NC} in your shell environment or ~/.openclaw/.env.`);
+        } else {
+          console.log(`  Set your API key in ${BOLD}plugins.entries.clawtalk.config.apiKey${NC} in openclaw.json.`);
+        }
         console.log();
         process.exit(1);
       }
