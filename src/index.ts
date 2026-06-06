@@ -196,9 +196,9 @@ const clawTalkPlugin = {
     const raw = api.logger;
     const logger: typeof raw = {
       info: (msg: string) => raw.info(`[clawtalk] ${msg}`),
-      warn: raw.warn ? (msg: string) => raw.warn!(`[clawtalk] ${msg}`) : undefined,
-      error: raw.error ? (msg: string) => raw.error!(`[clawtalk] ${msg}`) : undefined,
-      debug: raw.debug ? (msg: string) => raw.debug!(`[clawtalk] ${msg}`) : undefined,
+      warn: (msg: string) => raw.warn?.(`[clawtalk] ${msg}`),
+      error: (msg: string) => raw.error?.(`[clawtalk] ${msg}`),
+      debug: raw.debug ? (msg: string) => raw.debug?.(`[clawtalk] ${msg}`) : undefined,
     };
 
     if (!config.apiKey) {
