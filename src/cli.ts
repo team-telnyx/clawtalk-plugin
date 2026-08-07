@@ -226,7 +226,7 @@ export function registerClawTalkCli(params: { program: CommandLike; wsLogPath: s
       if (!apiKey) {
         console.log(`  Health:   ${RED}NO API KEY${NC}`);
         console.log();
-        console.log(`  Set your API key in ${BOLD}plugins.entries.clawtalk.config.apiKeys${NC} in openclaw.json.`);
+        console.log(`  Set your API key in ${BOLD}plugins.entries.clawtalk.config.apiKey${NC} in openclaw.json.`);
         console.log();
         process.exit(1);
       }
@@ -300,6 +300,18 @@ export function registerClawTalkCli(params: { program: CommandLike; wsLogPath: s
               check.status === 'pass' ? `${GREEN}✓${NC}` : check.status === 'warn' ? `${YELLOW}⚠${NC}` : `${RED}✗${NC}`;
             const detail = check.detail ? ` ${DIM}${check.detail}${NC}` : '';
             console.log(`  ${icon} ${check.id}${detail}`);
+          }
+
+          // Recovery guidance: the gateway owns the WebSocket lifecycle, so a
+          // disconnected bot means the ClawTalk service isn't running — never
+          // a missing scripts/connect.sh (that's the legacy standalone skill).
+          const botCheck = data.checks.find((c) => c.id === 'bot_connected');
+          if (botCheck && botCheck.status !== 'pass') {
+            console.log();
+            console.log(`  ${YELLOW}The OpenClaw gateway owns the ClawTalk WebSocket.${NC}`);
+            console.log('  1. Verify the gateway is running and the ClawTalk service started (check gateway logs).');
+            console.log('  2. Review `openclaw clawtalk logs` for auth/connection errors.');
+            console.log('  3. Restart the gateway if you recently installed or updated the plugin.');
           }
         } catch {
           // Skip section on network error

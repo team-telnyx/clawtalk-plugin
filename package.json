@@ -1,6 +1,6 @@
 {
   "name": "clawtalk",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Voice calls, SMS, missions, and approvals via ClawTalk — OpenClaw plugin",
   "main": "./build/index.js",
   "types": "./build/index.d.ts",
@@ -30,6 +30,7 @@
     "@types/node": "^24.12.2",
     "@types/ws": "^8.5.13",
     "chokidar": "^4.0.3",
+    "openclaw": "^2026.7.1-2",
     "typescript": "~5.8.3",
     "vitest": "^4.0.18"
   },

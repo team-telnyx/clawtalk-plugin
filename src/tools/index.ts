@@ -32,6 +32,30 @@ import {
 import { SmsConversationsTool, SmsListTool, SmsTool } from './SmsTool.js';
 import { StatusTool } from './StatusTool.js';
 
+export const CLAWTALK_TOOL_NAMES = [
+  'clawtalk_bot_config',
+  'clawtalk_call',
+  'clawtalk_call_status',
+  'clawtalk_sms',
+  'clawtalk_sms_list',
+  'clawtalk_sms_conversations',
+  'clawtalk_approve',
+  'clawtalk_status',
+  'clawtalk_mission_init',
+  'clawtalk_mission_setup_agent',
+  'clawtalk_mission_schedule',
+  'clawtalk_mission_event_status',
+  'clawtalk_mission_complete',
+  'clawtalk_mission_update_step',
+  'clawtalk_mission_log_event',
+  'clawtalk_mission_memory',
+  'clawtalk_mission_list',
+  'clawtalk_mission_get_plan',
+  'clawtalk_mission_cancel_event',
+  'clawtalk_assistants',
+  'clawtalk_insights',
+] as const;
+
 // ── Service container for tool construction ─────────────────
 
 export interface ToolServices {

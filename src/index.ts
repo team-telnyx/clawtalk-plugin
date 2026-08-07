@@ -10,6 +10,8 @@
  * Phase 6: TALK-50
  */
 
+import os from 'node:os';
+import path from 'node:path';
 import type { OpenClawPluginApi } from 'openclaw/plugin-sdk';
 import { registerClawTalkCli } from './cli.js';
 import { type ClawTalkConfig, type ResolvedClawTalkConfig, resolveConfig } from './config.js';
@@ -27,7 +29,7 @@ import { SmsHandler } from './services/SmsHandler.js';
 import { VoiceService } from './services/VoiceService.js';
 import { WalkieHandler } from './services/WalkieHandler.js';
 import { readPackageVersion, WebSocketService } from './services/WebSocketService.js';
-import { createTools, type ToolServices } from './tools/index.js';
+import { CLAWTALK_TOOL_NAMES, createTools, type ToolServices } from './tools/index.js';
 import { WsLogger } from './utils/ws-logger.js';
 
 // ── Module-level singleton ──────────────────────────────────
@@ -183,6 +185,9 @@ const clawTalkPlugin = {
   id: 'clawtalk',
   name: 'ClawTalk',
   description: 'Voice calls, SMS, missions, and approvals via ClawTalk',
+  contracts: {
+    tools: CLAWTALK_TOOL_NAMES,
+  },
 
   register(api: OpenClawPluginApi) {
     // ── Eager config parsing ──────────────────────────────
@@ -194,11 +199,11 @@ const clawTalkPlugin = {
     // channel dock's runtime.log, which is a separate system.
     // TODO: request per-plugin logger scoping upstream in OpenClaw.
     const raw = api.logger;
-    const logger: typeof raw = {
+    const logger: OpenClawPluginApi['logger'] = {
       info: (msg: string) => raw.info(`[clawtalk] ${msg}`),
-      warn: raw.warn ? (msg: string) => raw.warn!(`[clawtalk] ${msg}`) : undefined,
-      error: raw.error ? (msg: string) => raw.error!(`[clawtalk] ${msg}`) : undefined,
-      debug: raw.debug ? (msg: string) => raw.debug!(`[clawtalk] ${msg}`) : undefined,
+      warn: (msg: string) => (raw.warn ?? raw.info)(`[clawtalk] ${msg}`),
+      error: (msg: string) => (raw.error ?? raw.info)(`[clawtalk] ${msg}`),
+      debug: (msg: string) => (raw.debug ?? raw.info)(`[clawtalk] ${msg}`),
     };
 
     if (!config.apiKey) {
@@ -223,7 +228,7 @@ const clawTalkPlugin = {
           coreConfig: api.config as CoreConfig,
           logger: logger,
           enqueueSystemEvent: api.runtime.system.enqueueSystemEvent,
-          dataDir: api.resolvePath('.'),
+          dataDir: api.resolvePath?.('.') || path.join(os.homedir(), '.openclaw', 'clawtalk'),
         });
       }
       globalRuntime = await globalRuntimePromise;
@@ -271,7 +276,7 @@ const clawTalkPlugin = {
         name: skeleton.name,
         label: skeleton.label,
         description: skeleton.description,
-        parameters: skeleton.parameters,
+        parameters: skeleton.parameters as never,
         async execute(toolCallId: string, params: Record<string, unknown>) {
           const tools = await getToolInstances();
           const tool = tools[toolIndex];
@@ -284,7 +289,7 @@ const clawTalkPlugin = {
     logger.info(`Registered ${skeletonTools.length} agent tools`);
 
     // ── Register CLI ──────────────────────────────────────
-    const wsLogPath = `${api.resolvePath('.')}/ws.log`;
+    const wsLogPath = `${api.resolvePath?.('.') || path.join(os.homedir(), '.openclaw', 'clawtalk')}/ws.log`;
 
     api.registerCli(
       ({ program }) =>
@@ -293,7 +298,10 @@ const clawTalkPlugin = {
           wsLogPath,
           logger,
         }),
-      { commands: ['clawtalk'] },
+      {
+        commands: ['clawtalk'],
+        descriptors: [{ name: 'clawtalk', description: 'ClawTalk plugin utilities', hasSubcommands: true }],
+      },
     );
 
     // ── Register service ──────────────────────────────────
@@ -323,6 +331,14 @@ const clawTalkPlugin = {
         }
       },
     });
+
+    if (config.apiKey && config.autoConnect) {
+      setTimeout(() => {
+        void ensureRuntime().catch((err) => {
+          logger.warn?.(`ClawTalk startup runtime unavailable: ${err instanceof Error ? err.message : String(err)}`);
+        });
+      }, 0);
+    }
 
     // ── Register HTTP routes ──────────────────────────────
     // Health route creates DoctorService lazily via ensureRuntime
