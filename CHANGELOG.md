@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.4] - 2026-08-07
+
+> Note: `0.2.3` was published to npm before these fixes landed; `0.2.4` is the
+> first release containing them.
+
+### Fixed
+- Plugin registration no longer crashes when the host omits `api.resolvePath`
+  (older/reduced plugin APIs): `dataDir` and the WS log path fall back to
+  `~/.openclaw/clawtalk`. A crash here prevented the ClawTalk service from
+  registering, leaving the WebSocket permanently disconnected.
+- Logger adapter now always exposes `warn`/`error`/`debug` (falls back to
+  `info`) instead of leaving them undefined.
+- `openclaw clawtalk doctor` typo: `config.apiKeys` → `config.apiKey`.
+
+### Added
+- Manifest `activation` (startup + `plugins.entries.clawtalk` config path) and
+  `contracts.tools` declarations for lazy plugin loading on newer OpenClaw.
+- CLI command descriptors for lazy CLI registration (`openclaw clawtalk …`).
+- Startup auto-connect: when `apiKey` is set and `autoConnect` is enabled the
+  runtime (and its WebSocket) starts with the gateway instead of waiting for
+  the first tool call.
+- `openclaw clawtalk doctor` now prints WebSocket recovery guidance when
+  `bot_connected` fails: the gateway owns the WS lifecycle — verify the
+  ClawTalk service started, review `openclaw clawtalk logs`, restart the
+  gateway after install/update (never `scripts/connect.sh`).
+- README: "Troubleshooting the WebSocket" section documenting the
+  gateway-owned connection lifecycle.
+
 ## [0.2.0] - 2026-03-25
 
 ### Added

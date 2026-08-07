@@ -1,10 +1,41 @@
 {
     "id": "clawtalk",
     "name": "ClawTalk",
-    "description": "Voice calls, SMS, missions, and approvals via ClawTalk",
-    "skills": [
-        "./skills"
-    ],
+  "description": "Voice calls, SMS, missions, and approvals via ClawTalk",
+  "activation": {
+    "onStartup": true,
+    "onConfigPaths": [
+      "plugins.entries.clawtalk"
+    ]
+  },
+  "contracts": {
+    "tools": [
+      "clawtalk_bot_config",
+      "clawtalk_call",
+      "clawtalk_call_status",
+      "clawtalk_sms",
+      "clawtalk_sms_list",
+      "clawtalk_sms_conversations",
+      "clawtalk_approve",
+      "clawtalk_status",
+      "clawtalk_mission_init",
+      "clawtalk_mission_setup_agent",
+      "clawtalk_mission_schedule",
+      "clawtalk_mission_event_status",
+      "clawtalk_mission_complete",
+      "clawtalk_mission_update_step",
+      "clawtalk_mission_log_event",
+      "clawtalk_mission_memory",
+      "clawtalk_mission_list",
+      "clawtalk_mission_get_plan",
+      "clawtalk_mission_cancel_event",
+      "clawtalk_assistants",
+      "clawtalk_insights"
+    ]
+  },
+  "skills": [
+    "./skills"
+  ],
     "configSchema": {
         "type": "object",
         "additionalProperties": false,

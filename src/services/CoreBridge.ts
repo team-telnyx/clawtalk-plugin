@@ -227,8 +227,8 @@ export class CoreBridge implements ICoreBridge {
     const sessionFile = deps.resolveSessionFilePath(sessionId, entry, { agentId });
 
     // Resolve model - prefer params, then config (string or object.primary), fall back to extensionAPI defaults
-    const modelCfg = (cfg as { agents?: { defaults?: { model?: string | { primary?: string } } } })
-      ?.agents?.defaults?.model;
+    const modelCfg = (cfg as { agents?: { defaults?: { model?: string | { primary?: string } } } })?.agents?.defaults
+      ?.model;
     const configModel = typeof modelCfg === 'string' ? modelCfg : modelCfg?.primary;
     const modelRef = params.model ?? configModel ?? `${deps.DEFAULT_PROVIDER}/${deps.DEFAULT_MODEL}`;
     const slashIndex = modelRef.indexOf('/');

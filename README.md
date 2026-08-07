@@ -108,6 +108,26 @@ Request user approval for sensitive actions via push notification to the ClawTal
 - WebSocket log file with automatic rotation and API key redaction
 - CLI: `openclaw clawtalk logs` to tail the WebSocket log
 
+### Troubleshooting the WebSocket
+
+**The OpenClaw gateway owns the WebSocket lifecycle.** The plugin's ClawTalk
+service connects when the gateway starts and reconnects automatically with
+backoff — there is no separate client process and no `scripts/connect.sh`
+(that script belongs to the legacy standalone skill only).
+
+If the ClawTalk dashboard or doctor reports the bot as disconnected:
+
+```bash
+openclaw plugins inspect clawtalk   # plugin installed + version
+openclaw plugins doctor             # plugin subsystem health
+openclaw clawtalk doctor            # ClawTalk connectivity checks
+openclaw clawtalk logs              # WebSocket client logs
+```
+
+1. Verify the gateway is running and the ClawTalk service started (check gateway logs).
+2. Review `openclaw clawtalk logs` for auth or connection errors (invalid API key, server unreachable, 4000 close code = another client already connected).
+3. Restart the gateway after installing or updating the plugin — the new version's service only starts on gateway restart.
+
 ## Tools
 
 The plugin registers 20 agent tools:
